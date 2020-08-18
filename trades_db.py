@@ -9,10 +9,10 @@ class DB:
 
 	def __create_table__(self, c):
 		c.execute('''CREATE TABLE IF NOT EXISTS trades (create_date REAL PRIMARY KEY, ticker TEXT, entry_date REAL, exit_date REAL, shares REAL, 
-			planned_exit_price REAL, planned_entry_price REAL, stop_loss REAL, actual_exit_price REAL, actual_entry_price REAL, status TEXT)''')
+			planned_exit_price REAL, planned_entry_price REAL, stop_loss REAL, actual_exit_price REAL, actual_entry_price REAL, status TEXT, order_id TEXT)''')
 
 	def generate_default_trade(self, ticker, shares, entry, exit):
-		return Trade(datetime.timestamp(datetime.now()), ticker, 0.0, 0.0, shares, exit, entry, 0.0, 0.0, 0.0, 'QUEUED')
+		return Trade(datetime.timestamp(datetime.now()), ticker, 0.0, 0.0, shares, exit, entry, 0.0, 0.0, 0.0, 'QUEUED', '')
 
 	def get(self, create_date):
 		conn = self.__connect__()
@@ -24,7 +24,7 @@ class DB:
 		if (data == None):
 			return None
 		else:
-			return Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10])
+			return Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11])
 
 
 	def add(self, trade):
@@ -32,16 +32,41 @@ class DB:
 		c = conn.cursor()
 		self.__create_table__(c)
 		c.execute(f'''INSERT INTO trades VALUES ({trade.create_date}, '{trade.ticker}', {trade.entry_date}, {trade.exit_date}, 
-			{trade.shares}, {trade.planned_exit_price}, {trade.planned_entry_price}, {trade.stop_loss}, {trade.actual_exit_price}, {trade.actual_entry_price}, '{trade.status}')''')
+			{trade.shares}, {trade.planned_exit_price}, {trade.planned_entry_price}, {trade.stop_loss}, {trade.actual_exit_price}, 
+			{trade.actual_entry_price}, '{trade.status}', '{trade.order_id}')''')
 		conn.commit()
 		conn.close()
 		return trade
+
+	def open(self, create_date, shares, price):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		c.execute(f"UPDATE trades SET status = 'OPEN', shares = {shares}, actual_entry_price = {price} WHERE create_date = {create_date}")
+		conn.commit()
+		conn.close()
+
+	def close(self, create_date, price):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		c.execute(f"UPDATE trades SET status = 'CLOSED', actual_exit_price = {price} WHERE create_date = {create_date}")
+		conn.commit()
+		conn.close()
 
 	def cancel(self, create_date):
 		conn = self.__connect__()
 		c = conn.cursor()
 		self.__create_table__(c)
 		c.execute(f"UPDATE trades SET status = 'CANCELLED' WHERE create_date = {create_date}")
+		conn.commit()
+		conn.close()
+
+	def cancel_sale(self, create_date):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		c.execute(f"UPDATE trades SET status = 'SALE_CANCELLED_' WHERE create_date = {create_date}")
 		conn.commit()
 		conn.close()
 
@@ -53,19 +78,27 @@ class DB:
 		conn.commit()
 		conn.close()
 
-	def sell(self, create_date):
+	def sell(self, create_date, order_id):
 		conn = self.__connect__()
 		c = conn.cursor()
 		self.__create_table__(c)
-		c.execute(f"UPDATE trades SET status = 'SELLING' WHERE create_date = {create_date}")
+		c.execute(f"UPDATE trades SET status = 'SELLING', order_id = {order_id} WHERE create_date = {create_date}")
 		conn.commit()
 		conn.close()
 
-	def buy(self, create_date):
+	def buy(self, create_date, order_id):
 		conn = self.__connect__()
 		c = conn.cursor()
 		self.__create_table__(c)
-		c.execute(f"UPDATE trades SET status = 'BUYING' WHERE create_date = {create_date}")
+		c.execute(f"UPDATE trades SET status = 'BUYING', order_id = {order_id} WHERE create_date = {create_date}")
+		conn.commit()
+		conn.close()
+
+	def replace(self, create_date, order_id):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		c.execute(f"UPDATE trades SET order_id = {order_id} WHERE create_date = {create_date}")
 		conn.commit()
 		conn.close()
 
@@ -74,6 +107,14 @@ class DB:
 		c = conn.cursor()
 		self.__create_table__(c)
 		c.execute(f"UPDATE trades SET status = 'EXPIRED' WHERE create_date = {create_date}")
+		conn.commit()
+		conn.close()
+
+	def expire_sale(self, create_date):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		c.execute(f"UPDATE trades SET status = 'SALE_EXPIRED' WHERE create_date = {create_date}")
 		conn.commit()
 		conn.close()
 
@@ -100,7 +141,7 @@ class DB:
 		trades = []
 
 		for data in c.execute('SELECT * FROM trades ORDER BY create_date'):
-			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10]))
+			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11]))
 
 		conn.close()
 		return trades
@@ -112,7 +153,31 @@ class DB:
 		trades = []
 
 		for data in c.execute("SELECT * FROM trades WHERE status = 'OPEN' ORDER BY create_date ASC"):
-			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10]))
+			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11]))
+
+		conn.close()
+		return trades
+
+	def get_trades_being_bought(self):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		trades = []
+
+		for data in c.execute("SELECT * FROM trades WHERE status = 'BUYING' ORDER BY create_date ASC"):
+			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11]))
+
+		conn.close()
+		return trades
+
+	def get_trades_being_sold(self):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		trades = []
+
+		for data in c.execute("SELECT * FROM trades WHERE status = 'SELLING' ORDER BY create_date ASC"):
+			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11]))
 
 		conn.close()
 		return trades
@@ -124,7 +189,7 @@ class DB:
 		trades = []
 
 		for data in c.execute("SELECT * FROM trades WHERE status = 'OPEN' OR status = 'BUYING' OR status = 'SELLING' ORDER BY create_date ASC"):
-			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10]))
+			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11]))
 
 		conn.close()
 		return trades
@@ -136,7 +201,7 @@ class DB:
 		trades = []
 
 		for data in c.execute("SELECT * FROM trades WHERE status = 'QUEUED' ORDER BY create_date ASC"):
-			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10]))
+			trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10],data[11]))
 
 		conn.close()
 		return trades

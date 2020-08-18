@@ -22,10 +22,14 @@ class Brokerage:
 			"v": 3892,
 		})
 
-	# Return True or False based on whether or not the trade passed
+	# Return order id or None if failed
 	def sell(self, trade, sell_price):
 		return True
 
-	# Return True or False based on whether or not the trade passed
+	# Return order id or None if failed
 	def buy(self, trade, buy_price):
 		return True
+
+	# Return Order object or None if 404
+	def get_order(self, order_id):
+		return Order('ab341235abe2341', 'new', 500.0, 15)

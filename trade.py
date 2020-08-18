@@ -1,6 +1,6 @@
 class Trade:
 
-	def __init__(self, create_date, ticker, entry_date, exit_date, shares, exit, entry, stop_loss, actual_exit_price, actual_entry_price, status):
+	def __init__(self, create_date, ticker, entry_date, exit_date, shares, exit, entry, stop_loss, actual_exit_price, actual_entry_price, status, order_id):
 		self.shares = shares
 		self.planned_exit_price = exit
 		self.planned_entry_price = entry
@@ -12,3 +12,4 @@ class Trade:
 		self.actual_entry_price = actual_entry_price	
 		self.status=status
 		self.ticker=ticker
+		self.order_id=order_id

@@ -17,9 +17,42 @@ def expire_trades(brokerage, trades_db):
 
 def handle_open_buy_orders(brokerage, trades_db):
 	logging.info('Handling open buy orders...')
+	trades = trades_db.get_trades_being_bought()
+
+	for trade in trades:
+		order = brokerage.get_order(trade.order_id)
+
+		if order is None:
+			continue
+
+		if order.status == 'canceled':
+			trades_db.cancel(trade.create_date)
+		elif order.status == 'expired':
+			trades_db.expire(trade.create_date)
+		elif order.status == 'filled':
+			trades_db.open(trade.create_date, order.shares, order.sale_price)
+		elif order.status == 'replaced':
+			trades_db.replace(trade.create_date, order.order_id)
+
 
 def handle_open_sell_orders(brokerage, trades_db):
 	logging.info('Handling open sell orders...')
+	trades = trades_db.get_trades_being_sold()
+
+	for trade in trades:
+		order = brokerage.get_order(trade.order_id)
+
+		if order is None:
+			continue
+
+		if order.status == 'canceled':
+			trades_db.cancel_sale(trade.create_date)
+		elif order.status == 'expired':
+			trades_db.expire_sale(trade.create_date)
+		elif order.status == 'filled':
+			trades_db.close(trade.create_date, order.sale_price)
+		elif order.status == 'replaced':
+			trades_db.replace(trade.create_date, order.order_id)
 
 #Step 3
 def handle_open_trades(brokerage, trades_db):
@@ -49,8 +82,9 @@ def handle_open_trades(brokerage, trades_db):
 			# If it's less than the stop loss, we issue a sell order and mark the trade as selling.
 			if bar.close <= trade.stop_loss:
 				logging.debug(f'{trade.ticker}: Selling {trade.ticker} at {bar.close} due to passing stop loss {trade.stop_loss}...')
-				if brokerage.sell(trade, bar.close) == True:
-					trades_db.sell(trade.create_date)
+				order_id = brokerage.sell(trade, bar.close)
+				if order_id is not None:
+					trades_db.sell(trade.create_date, order_id)
 
 			# If it's over the planned exit price, we adjust the trailing stop loss.
 			if bar.close >= trade.planned_exit_price:
@@ -83,8 +117,9 @@ def open_new_trades(brokerage, trades_db):
 
 		if bar.close <= trade.planned_entry_price:
 			logging.debug(f'{trade.ticker}: Planned entry price of {trade.planned_exit_price} exceeded to {bar.close}. Buying shares...')
-			if brokerage.buy(trade) == True:
-				trades_db.buy(trade.create_date)
+			order_id = brokerage.buy(trade, bar.close)
+			if order_id is not None:
+				trades_db.buy(trade.create_date, order_id)
 				return True
 
 		return False
