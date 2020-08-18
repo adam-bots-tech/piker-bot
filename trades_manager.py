@@ -1,19 +1,28 @@
 import logging
-import trades_db
 import bot_configuration
-import time
+import datetime
 
-def expire_trades(brokerage):
+def expire_trades(brokerage, trades_db):
 	logging.info('Expiring trades...')
+	trades=trades_db.get_queued_trades()
 
-def handle_open_buy_orders(brokerage):
+	# Get all the queued trades to look for expired ones
+	for trade in trades:
+		expiration_date = datetime.datetime.fromtimestamp(trade.create_date) + datetime.timedelta(days=7)
+
+		if datetime.timestamp(datetime.now()) >= datetime.timestamp(expiration_date):
+			logging.debug(f'{trade.ticker}: Trade {trade.create_date} expired.')
+			trades_db.expire(trade.create_date)
+
+
+def handle_open_buy_orders(brokerage, trades_db):
 	logging.info('Handling open buy orders...')
 
-def handle_open_sell_orders(brokerage):
+def handle_open_sell_orders(brokerage, trades_db):
 	logging.info('Handling open sell orders...')
 
 #Step 3
-def handle_open_trades(brokerage):
+def handle_open_trades(brokerage, trades_db):
 	logging.info('Handling open trades...')
 	trades = trades_db.get_open_trades()
 
@@ -55,7 +64,7 @@ def handle_open_trades(brokerage):
 					trades_db.update_stop_loss(trade.create_date, new_stop_loss)
 
 #Step 4
-def open_new_trades(brokerage):
+def open_new_trades(brokerage, trades_db):
 	logging.info('Opening new trades...')
 	# Checking to see how many open, buying or selling trades we have after all the other steps finished.
 	open_trades = trades_db.get_active_trades()
@@ -69,17 +78,14 @@ def open_new_trades(brokerage):
 	queued_trades = trades_db.get_queued_trades()
 
 	# Createa closure around the buy logic so we can get a boolean
-	def buy_closure(trade):
-		if trade.create_date + (60.0 * 60.0 * 24.0 * 7.0) >= time.time():
-			trades_db.expire(trade.create_date)
-		else:
-			bar = brokerage.get_bar(trade.ticker)
+	def buy_closure(trade, trades_db):
+		bar = brokerage.get_bar(trade.ticker)
 
-			if bar.close <= trade.planned_entry_price:
-				logging.debug(f'{trade.ticker}: Planned entry price of {trade.planned_exit_price} exceeded to {bar.close}. Buying shares...')
-				if brokerage.buy(trade) == True:
-					trades_db.buy(trade.create_date)
-					return True
+		if bar.close <= trade.planned_entry_price:
+			logging.debug(f'{trade.ticker}: Planned entry price of {trade.planned_exit_price} exceeded to {bar.close}. Buying shares...')
+			if brokerage.buy(trade) == True:
+				trades_db.buy(trade.create_date)
+				return True
 
 		return False
 
@@ -89,6 +95,6 @@ def open_new_trades(brokerage):
 			break;
 
 
-		if buy_closure(trade) == True:
+		if buy_closure(trade, trades_db) == True:
 			trades_to_open -= 1
 
