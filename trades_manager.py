@@ -9,7 +9,6 @@ import time
 #def handle_open_sell_orders():
 
 def handle_open_trades():
-	raise Exception()
 	logging.info('Handling open trades...')
 	trades = trades_db.get_open_trades()
 
