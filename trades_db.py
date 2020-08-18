@@ -130,6 +130,18 @@ def get_open_trades():
 	conn.close()
 	return trades
 
+def get_active_trades():
+	conn = __connect__()
+	c = conn.cursor()
+	__create_table__(c)
+	trades = []
+
+	for data in c.execute("SELECT * FROM trades WHERE status = 'OPEN' OR status = 'BUYING' OR status = 'SELLING' ORDER BY create_date ASC"):
+		trades.append(Trade(data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9],data[10]))
+
+	conn.close()
+	return trades
+
 def get_queued_trades():
 	conn = __connect__()
 	c = conn.cursor()
