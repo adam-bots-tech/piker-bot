@@ -24,12 +24,12 @@ class Brokerage:
 
 	# Return order id or None if failed
 	def sell(self, trade, sell_price):
-		return True
+		return 'a1abde345'
 
 	# Return order id or None if failed
 	def buy(self, trade, buy_price):
-		return True
+		return 'b1abde345'
 
 	# Return Order object or None if 404
 	def get_order(self, order_id):
-		return Order('ab341235abe2341', 'new', 500.0, 15)
+		return Order('ab341235abe2341', 'new', 500.0, 15, '')
