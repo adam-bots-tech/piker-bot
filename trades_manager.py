@@ -94,7 +94,7 @@ def handle_open_trades(brokerage, trades_db):
 			# If it's over the planned exit price, we adjust the trailing stop loss.
 			if bar.close >= trade.planned_exit_price:
 				percentage_difference = (bar.close - trade.planned_exit_price) / trade.planned_exit_price
-				if percentage_difference < bot_configuration.TRAILING_STOP_LOSS:
+				if percentage_difference < (bot_configuration.TRAILING_STOP_LOSS / 2):
 					logging.info(f'{trade.ticker}: Planned exit price of {trade.planned_exit_price} exceeded to {bar.close}. Updating stop loss to {bar.close}...')
 					trades_db.update_stop_loss(trade.create_date, bar.close)
 				else:
