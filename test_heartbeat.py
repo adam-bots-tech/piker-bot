@@ -105,10 +105,10 @@ class TestBrokerage(brokerage.Brokerage):
 	
 	def get_position(self, ticker):
 		positions = {
-			'TSLA': Position('TSLA', 5, 499.0),
-			'AAPL': Position('AAPL', 10, 398.0),
-			'FB': Position('FB', 15, 299.5),
-			'GOOG': Position('GOOG', 15, 349.0)
+			'TSLA': Position('TSLA', 50, 499.0),
+			'AAPL': Position('AAPL', 62, 398.0),
+			'FB': Position('FB', 83, 299.5),
+			'GOOG': Position('GOOG', 71, 349.0)
 		}
 		return positions[ticker]
 
@@ -126,7 +126,7 @@ class TestBrokerage(brokerage.Brokerage):
 		}
 		return sales[trade.ticker]
 
-	def buy(self, trade, sell_price):
+	def buy(self, trade, shares, sell_price):
 		buys = {
 			'TSLA': 'B1',
 			'AAPL': 'B2',
@@ -154,14 +154,17 @@ class TestBrokerage(brokerage.Brokerage):
 		}
 		return orders[order_id]
 
+	def get_buying_power(self):
+		return 500000
+
 
 #Overwrite the configuration
 bot_configuration.DATABASE_NAME='test-piker-bot.db'
 bot_configuration.LOG_FILE='test-piker-bot.log'
-bot_configuration.RISK=1
-bot_configuration.REWARD=3
 bot_configuration.TRAILING_STOP_LOSS=0.02
 bot_configuration.MAX_TRADES_OPEN=6
+bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE=0.05
+bot_configuration.MIN_AMOUNT_PER_TRADE=100.0
 
 #Remove the old log and database file
 if os.path.exists(bot_configuration.DATA_FOLDER+bot_configuration.DATABASE_NAME):
@@ -174,12 +177,12 @@ if os.path.exists(bot_configuration.DATA_FOLDER+bot_configuration.LOG_FILE):
 heartbeat.b = TestBrokerage()
 
 #Create the trades
-tsla = heartbeat.db.add(heartbeat.db.generate_default_trade('TSLA', 5.0, 500.0, 520.0, 490.0)) #Replace the sell order and sell at a gain
-aapl = heartbeat.db.add(heartbeat.db.generate_default_trade('AAPL', 10.0, 400.0, 450.0, 384.0)) #Replace the buy order and sell at a loss
-fb = heartbeat.db.add(heartbeat.db.generate_default_trade('FB', 15.0, 300.0, 330.0, 285.0)) #Expire the sale
-amzn = heartbeat.db.add(heartbeat.db.generate_default_trade('AMZN', 20.0, 2000.0, 2200.0, 1900.00)) #Expire the buy
-goog = heartbeat.db.add(heartbeat.db.generate_default_trade('GOOG', 15.0, 350.0, 365.0, 343.0)) #Expire the sale
-msft = heartbeat.db.add(heartbeat.db.generate_default_trade('MSFT', 20.0, 200.0, 240.0, 187.0)) #Expire the buy
+tsla = heartbeat.db.add(heartbeat.db.generate_default_trade('TSLA', 500.0, 520.0, 490.0)) #Replace the sell order and sell at a gain
+aapl = heartbeat.db.add(heartbeat.db.generate_default_trade('AAPL', 400.0, 450.0, 384.0)) #Replace the buy order and sell at a loss
+fb = heartbeat.db.add(heartbeat.db.generate_default_trade('FB', 300.0, 330.0, 285.0)) #Expire the sale
+amzn = heartbeat.db.add(heartbeat.db.generate_default_trade('AMZN', 2000.0, 2200.0, 1900.00)) #Expire the buy
+goog = heartbeat.db.add(heartbeat.db.generate_default_trade('GOOG', 350.0, 365.0, 343.0)) #Expire the sale
+msft = heartbeat.db.add(heartbeat.db.generate_default_trade('MSFT', 200.0, 240.0, 187.0)) #Expire the buy
 
 tsla_id = tsla.create_date
 aapl_id = aapl.create_date
@@ -190,7 +193,7 @@ msft_id = msft.create_date
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 0.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
@@ -205,7 +208,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 0.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -220,7 +223,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 0.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
@@ -235,7 +238,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 0.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -250,7 +253,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 0.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -265,7 +268,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 0.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -279,6 +282,7 @@ assert msft.sell_order_id == '', f"MSFT sell_order_id {msft.sell_order_id}"
 assert msft_id is not None, f"MSFT create_date {msft.create_date}"
 
 # PULSE 1
+logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
 tsla = heartbeat.db.get(tsla_id)
@@ -290,7 +294,7 @@ msft = heartbeat.db.get(msft_id)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
@@ -305,7 +309,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 0.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -320,7 +324,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 83.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
@@ -335,7 +339,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -350,7 +354,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -365,7 +369,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -379,6 +383,7 @@ assert msft.sell_order_id == '', f"MSFT sell_order_id {msft.sell_order_id}"
 assert msft_id is not None, f"MSFT create_date {msft.create_date}"
 
 # PULSE 2
+logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
 tsla = heartbeat.db.get(tsla_id)
@@ -390,7 +395,7 @@ msft = heartbeat.db.get(msft_id)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 521.0, f"TSLA stop_loss {tsla.stop_loss}"
@@ -405,7 +410,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -420,7 +425,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 83.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 330.1, f"FB stop_loss {fb.stop_loss}"
@@ -435,7 +440,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -450,7 +455,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 366.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -465,7 +470,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -479,6 +484,7 @@ assert msft.sell_order_id == '', f"MSFT sell_order_id {msft.sell_order_id}"
 assert msft_id is not None, f"MSFT create_date {msft.create_date}"
 
 # PULSE 3
+logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
 # Workflow isn't causing AAPL bar to get popped off. Quick hack to make the test work. Overlooked this issue in design
@@ -493,7 +499,7 @@ msft = heartbeat.db.get(msft_id)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 529.2, f"TSLA stop_loss {tsla.stop_loss}"
@@ -508,7 +514,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -523,7 +529,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 83.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 330.1, f"FB stop_loss {fb.stop_loss}"
@@ -538,7 +544,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -553,7 +559,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 365.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -568,7 +574,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -582,6 +588,7 @@ assert msft.sell_order_id == '', f"MSFT sell_order_id {msft.sell_order_id}"
 assert msft_id is not None, f"MSFT create_date {msft.create_date}"
 
 # PULSE 4
+logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
 tsla = heartbeat.db.get(tsla_id)
@@ -593,7 +600,7 @@ msft = heartbeat.db.get(msft_id)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 518.518, f"TSLA stop_loss {tsla.stop_loss}"
@@ -608,7 +615,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -623,7 +630,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 83.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 330.1, f"FB stop_loss {fb.stop_loss}"
@@ -638,7 +645,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -653,7 +660,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 365.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -668,7 +675,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -682,6 +689,7 @@ assert msft.sell_order_id == '', f"MSFT sell_order_id {msft.sell_order_id}"
 assert msft_id is not None, f"MSFT create_date {msft.create_date}"
 
 # PULSE 5
+logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
 tsla = heartbeat.db.get(tsla_id)
@@ -693,7 +701,7 @@ msft = heartbeat.db.get(msft_id)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 518.518, f"TSLA stop_loss {tsla.stop_loss}"
@@ -708,7 +716,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -723,7 +731,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 83.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 330.1, f"FB stop_loss {fb.stop_loss}"
@@ -738,7 +746,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -753,7 +761,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 365.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -768,7 +776,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -782,6 +790,7 @@ assert msft.sell_order_id == '', f"MSFT sell_order_id {msft.sell_order_id}"
 assert msft_id is not None, f"MSFT create_date {msft.create_date}"
 
 # PULSE 6
+logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
 tsla = heartbeat.db.get(tsla_id)
@@ -793,7 +802,7 @@ msft = heartbeat.db.get(msft_id)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 5.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 518.518, f"TSLA stop_loss {tsla.stop_loss}"
@@ -808,7 +817,7 @@ assert tsla_id is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
-assert aapl.shares == 10.0, f"AAPL shares {aapl.shares}"
+assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
 assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
@@ -823,7 +832,7 @@ assert aapl_id is not None, f"AAPL create_date {aapl.create_date}"
 
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
-assert fb.shares == 15.0, f"FB shares {fb.shares}"
+assert fb.shares == 83.0, f"FB shares {fb.shares}"
 assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 330.1, f"FB stop_loss {fb.stop_loss}"
@@ -838,7 +847,7 @@ assert fb_id is not None, f"FB create_date {fb.create_date}"
 
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
-assert amzn.shares == 20.0, f"AMZN shares {amzn.shares}"
+assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
 assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
@@ -853,7 +862,7 @@ assert amzn_id is not None, f"AMZN create_date {amzn.create_date}"
 
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
-assert goog.shares == 15.0, f"GOOG shares {goog.shares}"
+assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
 assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 365.0, f"GOOG stop_loss {goog.stop_loss}"
@@ -868,7 +877,7 @@ assert goog_id is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 20.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"

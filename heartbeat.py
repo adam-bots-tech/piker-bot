@@ -14,7 +14,12 @@ db = trades_db.DB()
 
 def pulse():
 	try:
-		if b.is_open() == False:
+		is_open = b.is_open()
+
+		if (is_open == None):
+			logging.error('Brokerage API failed to return market status.')
+			return
+		elif is_open == False:
 			if state.market_open == True:
 				logging.info('Market has closed.')
 				state.market_open = False

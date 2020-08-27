@@ -12,8 +12,8 @@ class DB:
 			planned_exit_price REAL, planned_entry_price REAL, stop_loss REAL, actual_exit_price REAL, actual_entry_price REAL, status TEXT, buy_order_id TEXT,
 			sell_order_id TEXT)''')
 
-	def generate_default_trade(self, ticker, shares, entry, exit, stop_loss):
-		return Trade(datetime.timestamp(datetime.now()), ticker, 0.0, 0.0, shares, exit, entry, stop_loss, 0.0, 0.0, 'QUEUED', '', '')
+	def generate_default_trade(self, ticker, entry, exit, stop_loss):
+		return Trade(datetime.timestamp(datetime.now()), ticker, 0.0, 0.0, 0.0, exit, entry, stop_loss, 0.0, 0.0, 'QUEUED', '', '')
 
 	def get(self, create_date):
 		conn = self.__connect__()
@@ -87,11 +87,11 @@ class DB:
 		conn.commit()
 		conn.close()
 
-	def buy(self, create_date, actual_entry_price, order_id):
+	def buy(self, create_date, shares, actual_entry_price, order_id):
 		conn = self.__connect__()
 		c = conn.cursor()
 		self.__create_table__(c)
-		c.execute(f"UPDATE trades SET status = 'BUYING', buy_order_id = '{order_id}', actual_entry_price = {actual_entry_price} WHERE create_date = {create_date}")
+		c.execute(f"UPDATE trades SET status = 'BUYING', shares = {shares}, buy_order_id = '{order_id}', actual_entry_price = {actual_entry_price} WHERE create_date = {create_date}")
 		conn.commit()
 		conn.close()
 
