@@ -147,6 +147,7 @@ def open_new_trades(brokerage, trades_db):
 
 			if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
 				logging.warn(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+				trades_db.out_of_money(trade.create_date)
 				return False
 
 			trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE

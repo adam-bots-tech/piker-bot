@@ -79,6 +79,14 @@ class DB:
 		conn.commit()
 		conn.close()
 
+	def out_of_money(self, create_date):
+		conn = self.__connect__()
+		c = conn.cursor()
+		self.__create_table__(c)
+		c.execute(f"UPDATE trades SET status = 'FUNDS_TOO_LOW' WHERE create_date = {create_date}")
+		conn.commit()
+		conn.close()
+
 	def sell(self, create_date, actual_exit_price, order_id):
 		conn = self.__connect__()
 		c = conn.cursor()
