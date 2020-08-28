@@ -93,12 +93,12 @@ def handle_open_trades(brokerage, trades_db):
 				logging.error('Brokerage API failed to return last chart bar.')
 				continue
 
-			logging.debug(f'{trade.ticker}: PRICE {bar.close} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+			logging.debug(f'{trade.ticker}: PRICE {bar.close} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
 			# If it's less than the stop loss, we issue a sell order and mark the trade as selling.
 			if bar.close <= trade.stop_loss:
 				logging.info(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by PRICE {bar.close}. Selling {trade.shares} shares...')
-				order_id = brokerage.sell(trade, bar.close)
+				order_id = brokerage.sell(trade.ticker, trade.shares, bar.close)
 				if order_id is not None:
 					trades_db.sell(trade.create_date, bar.close, order_id)
 				else:
@@ -136,7 +136,7 @@ def open_new_trades(brokerage, trades_db):
 			logging.error('Brokerage API failed to return last chart bar.')
 			return False
 
-		logging.debug(f'{trade.ticker}: PRICE {bar.close} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+		logging.debug(f'{trade.ticker}: PRICE {bar.close} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
 		if bar.close <= trade.planned_entry_price:
 			buying_power = brokerage.get_buying_power()
@@ -159,10 +159,10 @@ def open_new_trades(brokerage, trades_db):
 
 			logging.debug(f'Dynamic Shares: SHARES {shares} TRADE AMOUNT {trade_amount} BUYING POWER {buying_power}')
 
-			order_id = brokerage.buy(trade, shares, bar.close)
+			order_id = brokerage.buy(trade.ticker, shares, bar.close)
 
 			if order_id is not None:
-				logging.info(f'{trade.ticker}: ENTRY {trade.planned_exit_price} exceeded by PRICE {bar.close}. {trade.shares} shares bought. (Order ID: {order_id})')
+				logging.info(f'{trade.ticker}: ENTRY {trade.planned_exit_price} exceeded by PRICE {bar.close}. {shares} shares bought. (Order ID: {order_id})')
 				trades_db.buy(trade.create_date, shares, bar.close, order_id)
 				return True
 

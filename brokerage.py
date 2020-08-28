@@ -1,5 +1,6 @@
 import bar
 import position
+import order
 import bot_configuration
 import alpaca_trade_api as tradeapi
 
@@ -13,7 +14,7 @@ class Brokerage:
 
 	def is_open(self):
 		try:
-			return api.get_clock().is_open
+			return self.api.get_clock().is_open
 		except tradeapi.rest.APIError as err:
 			logging.error(f'POST /clock API Code: {err.code} HTTP Code: {err.statuc_code} Message: {err.message}')
 			return None
@@ -21,8 +22,8 @@ class Brokerage:
 	# Return a Position object or None if 404
 	def get_position(self, ticker):
 		try:
-			position = api.get_position(trade.ticker)
-			return Position(position.symbol, position.qty, position.avg_entry_price)
+			p = self.api.get_position(ticker)
+			return position.Position(p.symbol, p.qty, p.avg_entry_price)
 		except tradeapi.rest.APIError as err:
 			logging.error(f'POST /position API Code: {err.code} HTTP Code: {err.statuc_code} Message: {err.message}')
 
@@ -34,20 +35,20 @@ class Brokerage:
 	# Return a Bar object or None if 404
 	def get_last_bar(self, ticker):
 		try:
-			bar = api.get_barset(trade.ticker, 'minute', 1)[0]
-			return Bar(bar)
+			barset = self.api.get_barset(ticker, 'minute', 1)
+			return bar.Bar(barset[ticker][0])
 		except tradeapi.rest.APIError as err:
 			logging.error(f'POST /bars/minute API Code: {err.code} HTTP Code: {err.statuc_code} Message: {err.message}')
 			return None
 
 	# Return order id or None if failed
-	def sell(self, trade, sell_price):
+	def sell(self, ticker, shares, sell_price):
 		try:
-			order = api.submit_order(
-			    symbol=trade.ticker,
+			order = self.api.submit_order(
+			    symbol=ticker,
 			    side='sell',
 			    type='limit',
-			    qty=f'{trade.shares}',
+			    qty=f'{shares}',
 			    time_in_force='day',
 			    order_class='simple',
 			    limit_price=f'{sell_price}'
@@ -58,10 +59,10 @@ class Brokerage:
 			return None
 
 	# Return order id or None if failed
-	def buy(self, trade, shares, buy_price):
+	def buy(self, ticker, shares, buy_price):
 		try:
-			order = api.submit_order(
-			    symbol=trade.ticker,
+			order = self.api.submit_order(
+			    symbol=ticker,
 			    side='buy',
 			    type='limit',
 			    qty=f'{shares}',
@@ -77,8 +78,8 @@ class Brokerage:
 	# Return Order object or None if 404
 	def get_order(self, order_id):
 		try:
-			order = self.api.get_order_by_client_order_id(order_id)
-			return Order(order.client_order_id, order.status, order.filled_avg_price, order.qty, order.replaced_by)
+			o = self.api.get_order_by_client_order_id(order_id)
+			return order.Order(o.client_order_id, o.status, o.filled_avg_price, o.qty, o.replaced_by)
 		except tradeapi.rest.APIError as err:
 			logging.error(f'GET /order API Code: {err.code} HTTP Code: {err.statuc_code} Message: {err.message}')
 			return None
