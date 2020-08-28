@@ -49,7 +49,7 @@ class Brokerage:
 			    side='sell',
 			    type='limit',
 			    qty=f'{shares}',
-			    time_in_force='day',
+			    time_in_force='gtc',
 			    order_class='simple',
 			    limit_price=f'{sell_price}'
 			)
