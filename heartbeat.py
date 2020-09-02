@@ -3,6 +3,8 @@ import brokerage
 import logging
 import trades_manager
 import trades_db
+import time
+import requests
 
 #Override with a sub class in tests
 state = state.State()
@@ -15,6 +17,8 @@ db = trades_db.DB()
 def pulse():
 	try:
 		is_open = b.is_open()
+
+		logging.info(f'Heartbeat Pulse {time.time()}: Market Open - {is_open}')
 
 		if (is_open == None):
 			logging.error('Brokerage API failed to return market status.')
@@ -34,5 +38,7 @@ def pulse():
 		trades_manager.handle_open_sell_orders(b, db)
 		trades_manager.handle_open_trades(b, db)
 		trades_manager.open_new_trades(b, db)
+	except requests.exceptions.ConnectionError as conn:
+		logging.info(f'Bad connection. {conn.message}')
 	except Exception as err:
 		logging.error('Exception occured during heartbeat:', exc_info=err)

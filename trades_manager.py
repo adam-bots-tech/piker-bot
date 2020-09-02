@@ -9,7 +9,7 @@ def expire_trades(brokerage, trades_db):
 
 	# Get all the queued trades to look for expired ones
 	for trade in trades:
-		expiration_date = datetime.fromtimestamp(trade.create_date) + timedelta(days=7)
+		expiration_date = datetime.fromtimestamp(trade.create_date) + timedelta(days=bot_configuration.MAX_DAYS_TO_KEEP_TRADE_QUEUED)
 
 		if datetime.timestamp(datetime.now()) >= datetime.timestamp(expiration_date):
 			logging.info(f'{trade.ticker}: Queued Trade {trade.create_date} expired.')
@@ -65,7 +65,7 @@ def handle_open_sell_orders(brokerage, trades_db):
 
 #Step 3
 def handle_open_trades(brokerage, trades_db):
-	trades = trades_db.get_open_trades()
+	trades = trades_db.get_open_long_trades()
 
 	# Get all open trades in the db, oldest first.
 	for trade in trades:
@@ -98,9 +98,9 @@ def handle_open_trades(brokerage, trades_db):
 			# If it's less than the stop loss, we issue a sell order and mark the trade as selling.
 			if bar.close <= trade.stop_loss:
 				logging.info(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by PRICE {bar.close}. Selling {trade.shares} shares...')
-				order_id = brokerage.sell(trade.ticker, trade.shares, bar.close)
+				order_id = brokerage.sell(trade.ticker, trade.shares)
 				if order_id is not None:
-					trades_db.sell(trade.create_date, bar.close, order_id)
+					trades_db.sell(trade.create_date, order_id)
 				else:
 					logging.error('Brokerage API failed to complete sell order.')
 
@@ -126,7 +126,7 @@ def open_new_trades(brokerage, trades_db):
 
 	# Counter for tracking how many trade slots we have to fill.
 	trades_to_open = bot_configuration.MAX_TRADES_OPEN - len(open_trades)
-	queued_trades = trades_db.get_queued_trades()
+	queued_trades = trades_db.get_queued_long_trades()
 
 	# Createa closure around the buy logic so we can get a boolean
 	def buy_closure(trade, trades_db):
@@ -138,7 +138,7 @@ def open_new_trades(brokerage, trades_db):
 
 		logging.debug(f'{trade.ticker}: PRICE {bar.close} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
-		if bar.close <= trade.planned_entry_price:
+		if bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss:
 			buying_power = brokerage.get_buying_power()
 
 			if (buying_power == None):
@@ -159,14 +159,15 @@ def open_new_trades(brokerage, trades_db):
 
 			logging.debug(f'Dynamic Shares: SHARES {shares} TRADE AMOUNT {trade_amount} BUYING POWER {buying_power}')
 
-			order_id = brokerage.buy(trade.ticker, shares, bar.close)
+			order_id = brokerage.buy(trade.ticker, shares)
 
 			if order_id is not None:
 				logging.info(f'{trade.ticker}: ENTRY {trade.planned_exit_price} exceeded by PRICE {bar.close}. {shares} shares bought. (Order ID: {order_id})')
-				trades_db.buy(trade.create_date, shares, bar.close, order_id)
+				trades_db.buy(trade.create_date, shares, order_id)
 				return True
-
-		logging.error('Brokerage API failed to complete buy order.')
+			else:
+				logging.error('Brokerage API failed to complete buy order.')
+		
 		return False
 
 	# Get all queued trades in database

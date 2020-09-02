@@ -42,16 +42,15 @@ class Brokerage:
 			return None
 
 	# Return order id or None if failed
-	def sell(self, ticker, shares, sell_price):
+	def sell(self, ticker, shares):
 		try:
 			order = self.api.submit_order(
 			    symbol=ticker,
 			    side='sell',
-			    type='limit',
+			    type='market',
 			    qty=f'{shares}',
 			    time_in_force='gtc',
-			    order_class='simple',
-			    limit_price=f'{sell_price}'
+			    order_class='simple'
 			)
 			return order.client_order_id
 		except tradeapi.rest.APIError as err:
@@ -59,16 +58,15 @@ class Brokerage:
 			return None
 
 	# Return order id or None if failed
-	def buy(self, ticker, shares, buy_price):
+	def buy(self, ticker, shares):
 		try:
 			order = self.api.submit_order(
 			    symbol=ticker,
 			    side='buy',
-			    type='limit',
+			    type='market',
 			    qty=f'{shares}',
 			    time_in_force='day',
-			    order_class='simple',
-			    limit_price=f'{buy_price}'
+			    order_class='simple'
 			)
 			return order.client_order_id
 		except tradeapi.rest.APIError as err:
@@ -87,7 +85,7 @@ class Brokerage:
 	def get_buying_power(self):
 		try:
 			account = self.api.get_account()
-			return account.buying_power
+			return float(account.cash)
 		except tradeapi.rest.APIError as err:
 			logging.error(f'GET /account API Code: {err.code} HTTP Code: {err.statuc_code} Message: {err.message}')
 			return None
