@@ -1,4 +1,7 @@
 bot_configuration.py
+credentials-sheets.json
+token-drive.pickle
+token-sheets.pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -2,13 +2,16 @@
 
 Stock trading bot for executing planned trades for me while I work
 
-Features
+## Features
 - TO DO
 
-Instructions
+## Configuration
 - TO DO
 
-Known Issues
-- Bot will still buy into long positions if the price is below the stop loss.
-- Buy and sell orders need to be changed to market. We are executing orders too quickly at too tight of a margin as it is. 
+## Running the Bot
+
+`docker build -f Dockerfile -t piker-bot .`
+
+`docker run --name piker_bot -d -v [PATH_TO_YOUR_DATA_FOLDER]:/var/lib/piker-bot -v [PATH_TO_YOUR_CODE_FOLDER]:/app piker-bot:latest`
+`docker run --name piker_bot -d -v d:/development/docker-data:/var/lib/piker-bot -v d:/development/piker-bot:/app piker-bot:latest`
 

@@ -5,17 +5,40 @@ import trades_manager
 import trades_db
 import time
 import requests
+import trade_journal
 
 #Override with a sub class in tests
-state = state.State()
+s = state.State()
 
 #Override with a sub class in tests
 b = brokerage.Brokerage()
 
-db = trades_db.DB()
+j = trade_journal.TradeJournal()
+
+db = trades_db.DB(j)
 
 def pulse():
 	try:
+
+		if s.bootstrapped == False:
+			j.bootstrap()
+			rows = j.get_queued_trades()
+			#Delete header row
+			header_row = rows[0]
+		
+			for row in rows:
+				if row[0] == '' or row[0].lower() == 'ticker':
+					continue
+
+				notes = row[5]
+				trade = db.create_new_long_trade(row[0], row[2], row[3], row[4])
+				j.create_trade_record(trade, notes)
+				logging.info(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
+ 
+			j.reset_queued_trades(header_row)
+			s.bootstrapped = True
+
+
 		is_open = b.is_open()
 
 		logging.info(f'Heartbeat Pulse {time.time()}: Market Open - {is_open}')
@@ -24,13 +47,15 @@ def pulse():
 			logging.error('Brokerage API failed to return market status.')
 			return
 		elif is_open == False:
-			if state.market_open == True:
+			if s.market_open == True:
 				logging.info('Market has closed.')
-				state.market_open = False
+				s.market_open = False
+				s.bootstrapped = False
 			return
 
-		if state.market_open == False:
-			state.market_open = True;
+		if s.market_open == False:
+			s.market_open = True;
+			s.bootstrapped = False
 			logging.info('Market has opened')
 
 		trades_manager.expire_trades(b, db)

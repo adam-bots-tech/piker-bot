@@ -51,16 +51,16 @@ def handle_open_sell_orders(brokerage, trades_db):
 			continue
 
 		if order.status == 'canceled':
-			logging.info(f'{trade.ticker}: Trade buy order {trade.create_date} canceled. (Order ID: {order.order_id})')
+			logging.info(f'{trade.ticker}: Trade sell order {trade.create_date} canceled. (Order ID: {order.order_id})')
 			trades_db.cancel_sale(trade.create_date)
 		elif order.status == 'expired':
-			logging.info(f'{trade.ticker}: Trade buy order {trade.create_date} expired. (Order ID: {order.order_id})')
+			logging.info(f'{trade.ticker}: Trade sell order {trade.create_date} expired. (Order ID: {order.order_id})')
 			trades_db.expire_sale(trade.create_date)
 		elif order.status == 'filled':
-			logging.info(f'{trade.ticker}: Trade buy order {trade.create_date} filled. (Order ID: {order.order_id})')
+			logging.info(f'{trade.ticker}: Trade sell order {trade.create_date} filled. (Order ID: {order.order_id})')
 			trades_db.close(trade.create_date, order.sale_price)
 		elif order.status == 'replaced':
-			logging.info(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
+			logging.info(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_sale(trade.create_date, order.replacement_order_id)
 
 #Step 3
@@ -162,7 +162,7 @@ def open_new_trades(brokerage, trades_db):
 			order_id = brokerage.buy(trade.ticker, shares)
 
 			if order_id is not None:
-				logging.info(f'{trade.ticker}: ENTRY {trade.planned_exit_price} exceeded by PRICE {bar.close}. {shares} shares bought. (Order ID: {order_id})')
+				logging.info(f'{trade.ticker}: ENTRY {trade.planned_entry_price} exceeded by PRICE {bar.close}. {shares} shares bought. (Order ID: {order_id})')
 				trades_db.buy(trade.create_date, shares, order_id)
 				return True
 			else:
