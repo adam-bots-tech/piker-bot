@@ -22,10 +22,10 @@ class TestTradeJournal(trade_journal.TradeJournal):
 		self.rows=[headerRow]
 
 	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss):
-		self.rows.append([ticker, type, entry, exit, stop_loss, ''])
+		self.rows.append([ticker, type, entry, exit, stop_loss, '', '', '', '', '', '', '', '', '', '', ''])
 
 
-	def create_trade_record(self, trade, notes):
+	def create_trade_record(self, trade, notes, macd, rsi, sma, volume):
 		return None
 
 	def update_trade_record(self, trade):
@@ -189,6 +189,7 @@ bot_configuration.MAX_TRADES_OPEN=6
 bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE=0.05
 bot_configuration.MIN_AMOUNT_PER_TRADE=100.0
 bot_configuration.TRADE_JOURNAL_TITLE='Test Stock Trading Journal'
+bot_configuration.DATA_FOLDER ='D:\\development\\docker-data\\'
 
 #Loading heartbeat here, so everything loads after we change the config
 import heartbeat
