@@ -12,7 +12,7 @@ Stock trading bot for executing swing trades over days to weeks.
 - Builds as a docker image and automatically begins pulsing when run in a container.
 
 ## Configuration and Installation
-- Clone the [Stock Library](https://duckduckgo.com) repo and follow the README instructions to install locally with pip.
+- Clone the [Stock Library](https://github.com/adam-long-tech/stock-libraries) repo and follow the README instructions to install locally with pip.
 - Clone the piker-bot into the same parent directory containing stock-libaries.
 - Copy the example_configuration.py file and rename it bot_configuration.py
 - Follow the notes in bot_configuration.py to configure the bot properly.
