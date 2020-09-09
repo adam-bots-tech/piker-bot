@@ -62,7 +62,7 @@ def pull_queued_trades():
 			continue
 
 		trade = db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6])
-		j.create_trade_record(trade, row[5], row[6], row[7])
+		j.create_trade_record(trade, row[5], row[7], row[8])
 		logging.info(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
 
 	j.reset_queued_trades(header_row)

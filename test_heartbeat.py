@@ -9,11 +9,12 @@ from bar import Bar
 from position import Position
 from order import Order
 import trade_journal
+import pandas as pd
 
 class TestTradeJournal(trade_journal.TradeJournal):
 
 	def __init__(self):
-		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', '']]
+		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', 'notes', 'expiration', 'metadata', 'base64']]
 
 	def get_queued_trades(self):
 		return self.rows
@@ -21,14 +22,14 @@ class TestTradeJournal(trade_journal.TradeJournal):
 	def reset_queued_trades(self, headerRow):
 		self.rows=[headerRow]
 
-	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata):
-		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata])
+	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata, base64):
+		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata, base64])
 
 
-	def create_trade_record(self, trade, notes, expiration, metadata):
+	def create_trade_record(self, trade, notes, metadata, base64):
 		return None
 
-	def update_trade_record(self, trade):
+	def update_trade_record(self, trade, buy_metadata=None, sale_metadata=None, buy_base64=None, sale_base64=None):
 		return None
 
 	def bootstrap(self):
@@ -180,6 +181,18 @@ class TestBrokerage(brokerage.Brokerage):
 	def get_buying_power(self):
 		return 500000
 
+	def get_last_200_minutes_data_set(self, ticker, with_time=False):
+		if with_time:
+			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0, '9/3/2020 20:00']], index=range(0, 1), columns=['open','close','high','low','volume', 'time'])
+		else:
+			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0]], index=range(0, 1), columns=['open','close','high','low','volume'])
+
+	def get_last_200_15minutes_data_set(self, ticker, with_time=False):
+		if with_time:
+			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0, '9/3/2020 20:00']], index=range(0, 1), columns=['open','close','high','low','volume', 'time'])
+		else:
+			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0]], index=range(0, 1), columns=['open','close','high','low','volume'])
+
 
 #Overwrite the configuration
 bot_configuration.DATABASE_NAME='test-piker-bot.db'
@@ -207,12 +220,12 @@ heartbeat.j = TestTradeJournal()
 heartbeat.db.journal = heartbeat.j
 
 #Create the trades
-heartbeat.j.create_queued_trade(2,'TSLA', 'long', 500.0, 520.0, 490.0, '', 1, '') #Replace the sell order and sell at a gain
-heartbeat.j.create_queued_trade(3,'AAPL', 'long', 400.0, 450.0, 384.0, '', 1, '') #Replace the buy order and sell at a loss
-heartbeat.j.create_queued_trade(4,'FB', 'long', 300.0, 330.0, 285.0, '', 1, '') #Expire the sale
-heartbeat.j.create_queued_trade(5,'AMZN', 'long', 2000.0, 2200.0, 1900.00, '', 1, '') #Expire the buy
-heartbeat.j.create_queued_trade(6,'GOOG', 'long', 350.0, 365.0, 343.0, '', 1, '') #Expire the sale
-heartbeat.j.create_queued_trade(7,'MSFT', 'long', 200.0, 240.0, 187.0, '', 1, '') #Expire the buy
+heartbeat.j.create_queued_trade(2,'TSLA', 'long', 500.0, 520.0, 490.0, '', 1, '', '') #Replace the sell order and sell at a gain
+heartbeat.j.create_queued_trade(3,'AAPL', 'long', 400.0, 450.0, 384.0, '', 1, '', '') #Replace the buy order and sell at a loss
+heartbeat.j.create_queued_trade(4,'FB', 'long', 300.0, 330.0, 285.0, '', 1, '', '') #Expire the sale
+heartbeat.j.create_queued_trade(5,'AMZN', 'long', 2000.0, 2200.0, 1900.00, '', 1, '', '') #Expire the buy
+heartbeat.j.create_queued_trade(6,'GOOG', 'long', 350.0, 365.0, 343.0, '', 1, '', '') #Expire the sale
+heartbeat.j.create_queued_trade(7,'MSFT', 'long', 200.0, 240.0, 187.0, '', 1, '', '') #Expire the buy
 
 
 # PULSE 1

@@ -3,6 +3,9 @@ import bot_configuration
 from datetime import datetime
 from datetime import timedelta
 import math
+import technical_analysis as ta
+import json
+import candlestick
 
 def expire_trades(brokerage, trades_db):
 	trades=trades_db.get_queued_trades()
@@ -34,7 +37,7 @@ def handle_open_buy_orders(brokerage, trades_db):
 			trades_db.expire(trade.create_date)
 		elif order.status == 'filled':
 			logging.info(f'{trade.ticker}: Trade buy order {trade.create_date} filled. (Order ID: {order.order_id})')
-			trades_db.open(trade.create_date, order.shares, order.sale_price)
+			trades_db.open(trade.create_date, order.shares, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
 		elif order.status == 'replaced':
 			logging.info(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_buy(trade.create_date, order.replacement_order_id)
@@ -58,7 +61,7 @@ def handle_open_sell_orders(brokerage, trades_db):
 			trades_db.expire_sale(trade.create_date)
 		elif order.status == 'filled':
 			logging.info(f'{trade.ticker}: Trade sell order {trade.create_date} filled. (Order ID: {order.order_id})')
-			trades_db.close(trade.create_date, order.sale_price)
+			trades_db.close(trade.create_date, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
 		elif order.status == 'replaced':
 			logging.info(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_sale(trade.create_date, order.replacement_order_id)
