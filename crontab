@@ -1,2 +1,0 @@
-PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin
-* * * * * root python /app/main-pulse.py > /var/lib/piker-bot/cron.log

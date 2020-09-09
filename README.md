@@ -10,22 +10,20 @@ Stock trading bot for executing swing trades over days to weeks.
 - Bot will sell the stock when the stop loss is hit. If the exit price is hit, it will wait until the price drops below the closing price from the previous heartbeat pulse.
 	- No point in selling if the stock is just going up with every heartbeat pulse. We wait for a shift in trend to sell.
 - As the trade progreses, the bot automatically updates the sqlite3 database and the trade journal in Google Drive.
-- Builds as a docker image and automatically begins pulsing when run in a container.
+
+## Libraries
+Requires a number of libraries available on pip as well as a plotly-orca installation on your PATH.
 
 ## Configuration and Installation
 - Clone the [Stock Library](https://github.com/adam-long-tech/stock-libraries) repo and follow the README instructions to install locally with pip.
 - Clone the piker-bot into the same parent directory containing stock-libaries.
 - Copy the example_configuration.py file and rename it bot_configuration.py
 - Follow the notes in bot_configuration.py to configure the bot properly.
+- The Google Drive API will provide instructions on how to activate the API on a first run.
 
 ## Running the Bot
 
-Run from the parent directory containing the project folder and the stock-libraries module.
-
-`docker build -f piker-bot/Dockerfile -t piker-bot .`
-
-`docker run --name piker_bot -d -v [PATH_TO_YOUR_DATA_FOLDER]:/var/lib/piker-bot piker-bot:latest`
-`docker run --name piker_bot -d -v d:/development/docker-data:/var/lib/piker-bot piker-bot:latest`
+I had a docker image, but it was too difficult to get the logging to work with crontab, so it has been sidelined for the time being.
 
 You can execute main-pulse.py to fire the heartbeat pulse every minute or run main-scheduler.py to activate
 the scheduler and begin pulsing the heartbeat every minute for an eternity.
