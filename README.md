@@ -5,9 +5,10 @@ Stock trading bot for executing swing trades over days to weeks.
 ## Features
 - Reads queued trades from a Google spreadsheet in my Google drive and adds them to local sqlite3 database
 - Heartbeat pulses every minute and checks the price on stocks being traded.
-- Bot purchases the stock when it falls below the entry price while still being above the stop loss.
-- Bot will sell the stock when the stop loss is hit.
-- When the exit price is hit, bot will implement a 2% trailing stop loss until the stop loss is hit and the stock is sold for a profit.
+- Bot purchases the stock when it falls below the entry price while still being above the stop loss and the closing price from the previous heartbeat pulse.
+	- This is to ensure the stock is bought when a potential upwards trend has started. Does not buy if the stock goes straight down from the entry price to the stop loss.
+- Bot will sell the stock when the stop loss is hit. If the exit price is hit, it will wait until the price drops below the closing price from the previous heartbeat pulse.
+	- No point in selling if the stock is just going up with every heartbeat pulse. We wait for a shift in trend to sell.
 - As the trade progreses, the bot automatically updates the sqlite3 database and the trade journal in Google Drive.
 - Builds as a docker image and automatically begins pulsing when run in a container.
 

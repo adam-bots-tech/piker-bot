@@ -9,7 +9,7 @@ def expire_trades(brokerage, trades_db):
 
 	# Get all the queued trades to look for expired ones
 	for trade in trades:
-		expiration_date = datetime.fromtimestamp(trade.create_date) + timedelta(days=bot_configuration.MAX_DAYS_TO_KEEP_TRADE_QUEUED)
+		expiration_date = datetime.fromtimestamp(trade.create_date) + timedelta(days=trade.expiration_date)
 
 		if datetime.timestamp(datetime.now()) >= datetime.timestamp(expiration_date):
 			logging.info(f'{trade.ticker}: Queued Trade {trade.create_date} expired.')
@@ -64,7 +64,7 @@ def handle_open_sell_orders(brokerage, trades_db):
 			trades_db.replace_sale(trade.create_date, order.replacement_order_id)
 
 #Step 3
-def handle_open_trades(brokerage, trades_db):
+def handle_open_trades(brokerage, trades_db, s):
 	trades = trades_db.get_open_long_trades()
 
 	# Get all open trades in the db, oldest first.
@@ -104,19 +104,28 @@ def handle_open_trades(brokerage, trades_db):
 				else:
 					logging.error('Brokerage API failed to complete sell order.')
 
-			# If it's over the planned exit price, we adjust the trailing stop loss.
+			# If it's over the planned exit price, we see if the price has dropped since the last tick and if so, then we sell. If not, we continue to hold.
 			if bar.close >= trade.planned_exit_price:
-				percentage_difference = (bar.close - trade.planned_exit_price) / trade.planned_exit_price
-				if percentage_difference < (bot_configuration.TRAILING_STOP_LOSS / 2):
-					logging.info(f'{trade.ticker}: EXIT {trade.planned_exit_price} exceeded by PRICE {bar.close}. Setting new STOP {bar.close}...')
-					trades_db.update_stop_loss(trade.create_date, bar.close)
+				prices = s.get_last_prices()
+
+				if trade.ticker not in prices.keys():
+					prices[trade.ticker] = bar.close
+					s.set_last_prices(prices)
+				elif float(prices[trade.ticker]) < bar.close:
+					logging.info(f'{trade.ticker}: PRICE {bar.close} less than LAST PRICE {prices[trade.ticker]}. Selling {trade.shares} shares...')
+					order_id = brokerage.sell(trade.ticker, trade.shares)
+					if order_id is not None:
+						trades_db.sell(trade.create_date, order_id)
+						del prices[trade.ticker]
+						s.set_last_prices(prices)
+					else:
+						logging.error('Brokerage API failed to complete sell order.')
 				else:
-					new_stop_loss = bar.close - (bar.close * bot_configuration.TRAILING_STOP_LOSS)
-					logging.info(f'{trade.ticker}: EXIT {trade.planned_exit_price} exceeded by PRICE {bar.close}. Setting new STOP {new_stop_loss}...')
-					trades_db.update_stop_loss(trade.create_date, new_stop_loss)
+					prices[trade.ticker] = bar.close
+					s.set_last_prices(prices)
 
 #Step 4
-def open_new_trades(brokerage, trades_db):
+def open_new_trades(brokerage, trades_db, s):
 	# Checking to see how many open, buying or selling trades we have after all the other steps finished.
 	open_trades = trades_db.get_active_trades()
 
@@ -138,8 +147,17 @@ def open_new_trades(brokerage, trades_db):
 
 		logging.debug(f'{trade.ticker}: PRICE {bar.close} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
-		if bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss:
+		prices = s.get_last_prices()
+
+		if trade.ticker not in prices.keys():
+			prices[trade.ticker] = bar.close
+			s.set_last_prices(prices)
+
+		logging.debug(f'Last Price {trade.ticker}: {float(prices[trade.ticker])}')
+		# Only buy if the price is below the planned entry price, but above the stop loss and above the last recorded price
+		if bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss and bar.close > float(prices[trade.ticker]):
 			buying_power = brokerage.get_buying_power()
+			logging.debug(f'Buying {trade.ticker}')
 
 			if (buying_power == None):
 				logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
@@ -167,6 +185,9 @@ def open_new_trades(brokerage, trades_db):
 				return True
 			else:
 				logging.error('Brokerage API failed to complete buy order.')
+		
+		prices[trade.ticker] = bar.close
+		s.set_last_prices(prices)
 		
 		return False
 

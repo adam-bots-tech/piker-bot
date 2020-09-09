@@ -45,8 +45,8 @@ def pulse():
 		trades_manager.expire_trades(b, db)
 		trades_manager.handle_open_buy_orders(b, db)
 		trades_manager.handle_open_sell_orders(b, db)
-		trades_manager.handle_open_trades(b, db)
-		trades_manager.open_new_trades(b, db)
+		trades_manager.handle_open_trades(b, db, s)
+		trades_manager.open_new_trades(b, db, s)
 	except requests.exceptions.ConnectionError as conn:
 		logging.info(f'Bad connection. {conn.message}')
 	except Exception as err:
@@ -61,25 +61,8 @@ def pull_queued_trades():
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
-		notes = row[5]
-		macd = {
-			'month': row[6],
-			'day': row[7],
-			'year': row[8]
-		}
-		rsi = {
-			'month': row[9],
-			'day': row[10],
-			'year': row[11]
-		}
-		sma = {
-			'fifty': row[12],
-			'hundred': row[13],
-			'two_hundred': row[14]
-		}
-		volume = row[15]
-		trade = db.create_new_long_trade(row[0], row[2], row[3], row[4])
-		j.create_trade_record(trade, notes, macd, rsi, sma, volume)
+		trade = db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6])
+		j.create_trade_record(trade, row[5], row[6], row[7])
 		logging.info(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
 
 	j.reset_queued_trades(header_row)
