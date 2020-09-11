@@ -31,13 +31,13 @@ def pulse():
 			return
 		elif is_open == False:
 			if s.get_market_open() == True:
-				logging.warning('Market has closed.')
+				logging.critical('Market has closed.')
 				s.set_market_open(False)
 			return
 
 		if s.get_market_open() == False:
 			s.set_market_open(True)
-			logging.warning('Market has opened')
+			logging.critical('Market has opened')
 
 		trades_manager.expire_trades(b, db)
 		trades_manager.handle_open_buy_orders(b, db)
@@ -45,7 +45,7 @@ def pulse():
 		trades_manager.handle_open_trades(b, db, s)
 		trades_manager.open_new_trades(b, db, s)
 	except requests.exceptions.ConnectionError as conn:
-		logging.warning(f'Bad connection. {conn.message}')
+		logging.critical(f'Bad connection. {conn.message}')
 	except Exception as err:
 		logging.error('Exception occured during heartbeat:', exc_info=err)
 
@@ -60,6 +60,6 @@ def pull_queued_trades():
 
 		trade = db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6])
 		j.create_trade_record(trade, row[5], row[7], row[8])
-		logging.warning(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
+		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
 
 	j.reset_queued_trades(header_row)

@@ -15,7 +15,7 @@ def expire_trades(brokerage, trades_db):
 		expiration_date = datetime.fromtimestamp(trade.create_date) + timedelta(days=trade.expiration_date)
 
 		if datetime.timestamp(datetime.now()) >= datetime.timestamp(expiration_date):
-			logging.warning(f'{trade.ticker}: Queued Trade {trade.create_date} expired.')
+			logging.critical(f'{trade.ticker}: Queued Trade {trade.create_date} expired.')
 			trades_db.expire(trade.create_date)
 
 
@@ -30,16 +30,16 @@ def handle_open_buy_orders(brokerage, trades_db):
 			continue
 
 		if order.status == 'canceled':
-			logging.warning(f'{trade.ticker}: Trade buy order {trade.create_date} canceled. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} canceled. (Order ID: {order.order_id})')
 			trades_db.cancel(trade.create_date)
 		elif order.status == 'expired':
-			logging.warning(f'{trade.ticker}: Trade buy order {trade.create_date} expired. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} expired. (Order ID: {order.order_id})')
 			trades_db.expire(trade.create_date)
 		elif order.status == 'filled':
-			logging.warning(f'{trade.ticker}: Trade buy order {trade.create_date} filled. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} filled. (Order ID: {order.order_id})')
 			trades_db.open(trade.create_date, order.shares, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
 		elif order.status == 'replaced':
-			logging.warning(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_buy(trade.create_date, order.replacement_order_id)
 
 
@@ -54,16 +54,16 @@ def handle_open_sell_orders(brokerage, trades_db):
 			continue
 
 		if order.status == 'canceled':
-			logging.warning(f'{trade.ticker}: Trade sell order {trade.create_date} canceled. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} canceled. (Order ID: {order.order_id})')
 			trades_db.cancel_sale(trade.create_date)
 		elif order.status == 'expired':
-			logging.warning(f'{trade.ticker}: Trade sell order {trade.create_date} expired. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} expired. (Order ID: {order.order_id})')
 			trades_db.expire_sale(trade.create_date)
 		elif order.status == 'filled':
-			logging.warning(f'{trade.ticker}: Trade sell order {trade.create_date} filled. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} filled. (Order ID: {order.order_id})')
 			trades_db.close(trade.create_date, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
 		elif order.status == 'replaced':
-			logging.warning(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_sale(trade.create_date, order.replacement_order_id)
 
 #Step 3
@@ -100,7 +100,7 @@ def handle_open_trades(brokerage, trades_db, s):
 
 			# If it's less than the stop loss, we issue a sell order and mark the trade as selling.
 			if bar.close <= trade.stop_loss:
-				logging.warning(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by PRICE {bar.close}. Selling {trade.shares} shares...')
+				logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by PRICE {bar.close}. Selling {trade.shares} shares...')
 				order_id = brokerage.sell(trade.ticker, trade.shares)
 				if order_id is not None:
 					trades_db.sell(trade.create_date, order_id)
@@ -112,21 +112,21 @@ def handle_open_trades(brokerage, trades_db, s):
 				prices = s.get_last_prices()
 
 				if trade.ticker not in prices.keys():
-					logging.warning(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}. Waiting until downward trend to sell...')
+					logging.critical(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}. Waiting until downward trend to sell...')
 					prices[trade.ticker] = bar.close
 					s.set_last_prices(prices)
 				elif float(prices[trade.ticker]) < bar.close:
-					logging.warning(f'{trade.ticker}: PRICE {bar.close} less than LAST PRICE {prices[trade.ticker]}. Trend has shifted. Selling {trade.shares} shares...')
+					logging.critical(f'{trade.ticker}: PRICE {bar.close} less than LAST PRICE {prices[trade.ticker]}. Trend has shifted. Selling {trade.shares} shares...')
 					order_id = brokerage.sell(trade.ticker, trade.shares)
 					if order_id is not None:
 						trades_db.sell(trade.create_date, order_id)
 						del prices[trade.ticker]
 						s.set_last_prices(prices)
-						logging.warning(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
+						logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
 					else:
 						logging.error('Brokerage API failed to complete sell order.')
 				else:
-					logging.warning(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend..')
+					logging.critical(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend..')
 					prices[trade.ticker] = bar.close
 					s.set_last_prices(prices)
 
@@ -158,13 +158,13 @@ def open_new_trades(brokerage, trades_db, s):
 		if trade.ticker not in prices.keys():
 			prices[trade.ticker] = bar.close
 			s.set_last_prices(prices)
-			logging.warning(f'{trade.ticker} PRICE {bar.close} below ENTRY {trade.planned_entry_price}, but waiting for a shift to an upward trend before buying...')
+			logging.critical(f'{trade.ticker} PRICE {bar.close} below ENTRY {trade.planned_entry_price}, but waiting for a shift to an upward trend before buying...')
 
 		logging.debug(f'Last Price {trade.ticker}: {float(prices[trade.ticker])}')
 		if bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss and bar.close < float(prices[trade.ticker]):
-			logging.warning(f'{trade.ticker} {bar.close} below ENTRY {trade.planned_entry_price}, but still in a downward trend...')
+			logging.critical(f'{trade.ticker} {bar.close} below ENTRY {trade.planned_entry_price}, but still in a downward trend...')
 		elif bar.close <= trade.planned_entry_price and bar.close < trade.stop_loss and bar.close < float(prices[trade.ticker]):
-			logging.warning(f'{trade.ticker} {bar.close} below ENTRY {trade.planned_entry_price} and below STOP LOSS {trade.stop_loss}. Cancelling trade...')
+			logging.critical(f'{trade.ticker} {bar.close} below ENTRY {trade.planned_entry_price} and below STOP LOSS {trade.stop_loss}. Cancelling trade...')
 			trades_db.stop_loss(trade.create_date)
 		# Only buy if the price is below the planned entry price, but above the stop loss and above the last recorded price
 		elif bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss and bar.close > float(prices[trade.ticker]):
@@ -176,7 +176,7 @@ def open_new_trades(brokerage, trades_db, s):
 				return False
 
 			if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
-				logging.warning(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+				logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
 				trades_db.out_of_money(trade.create_date)
 				return False
 
@@ -192,7 +192,7 @@ def open_new_trades(brokerage, trades_db, s):
 			order_id = brokerage.buy(trade.ticker, shares)
 
 			if order_id is not None:
-				logging.warning(f'{trade.ticker}: {shares} shares bought at market price. (Order ID: {order_id})')
+				logging.critical(f'{trade.ticker}: {shares} shares bought at market price. (Order ID: {order_id})')
 				trades_db.buy(trade.create_date, shares, order_id)
 				return True
 			else:
