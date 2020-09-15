@@ -19,7 +19,7 @@ def expire_trades(brokerage, trades_db):
 			trades_db.expire(trade.create_date)
 
 
-def handle_open_buy_orders(brokerage, trades_db):
+def handle_open_buy_orders(brokerage, trades_db, s):
 	trades = trades_db.get_trades_being_bought()
 
 	for trade in trades:
@@ -32,18 +32,34 @@ def handle_open_buy_orders(brokerage, trades_db):
 		if order.status == 'canceled':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} canceled. (Order ID: {order.order_id})')
 			trades_db.cancel(trade.create_date)
+			prices = s.get_last_prices()
+			if 'buy'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['buy'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 		elif order.status == 'expired':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} expired. (Order ID: {order.order_id})')
 			trades_db.expire(trade.create_date)
+			prices = s.get_last_prices()
+			if 'buy'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['buy'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 		elif order.status == 'filled':
-			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} filled. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} filled at {order.sale_price}. (Order ID: {order.order_id})')
 			trades_db.open(trade.create_date, order.shares, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
+			prices = s.get_last_prices()
+			if 'buy'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['buy'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 		elif order.status == 'replaced':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_buy(trade.create_date, order.replacement_order_id)
+			prices = s.get_last_prices()
+			if 'buy'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['buy'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 
 
-def handle_open_sell_orders(brokerage, trades_db):
+def handle_open_sell_orders(brokerage, trades_db, s):
 	trades = trades_db.get_trades_being_sold()
 
 	for trade in trades:
@@ -56,15 +72,31 @@ def handle_open_sell_orders(brokerage, trades_db):
 		if order.status == 'canceled':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} canceled. (Order ID: {order.order_id})')
 			trades_db.cancel_sale(trade.create_date)
+			prices = s.get_last_prices()
+			if 'sell'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['sell'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 		elif order.status == 'expired':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} expired. (Order ID: {order.order_id})')
 			trades_db.expire_sale(trade.create_date)
+			prices = s.get_last_prices()
+			if 'sell'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['sell'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 		elif order.status == 'filled':
-			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} filled. (Order ID: {order.order_id})')
+			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} filled at {order.sale_price}. (Order ID: {order.order_id})')
 			trades_db.close(trade.create_date, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
+			prices = s.get_last_prices()
+			if 'sell'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['sell'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 		elif order.status == 'replaced':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
 			trades_db.replace_sale(trade.create_date, order.replacement_order_id)
+			prices = s.get_last_prices()
+			if 'sell'+trade.ticker+str(trade.id) in prices.keys():
+				del prices['sell'+trade.ticker+str(trade.id)]
+			price = s.set_last_prices(prices)
 
 #Step 3
 def handle_open_trades(brokerage, trades_db, s):
@@ -72,63 +104,60 @@ def handle_open_trades(brokerage, trades_db, s):
 
 	# Get all open trades in the db, oldest first.
 	for trade in trades:
-		# Always sync them with the position in the brokerage account.
-		synced_trade = None
-		position = brokerage.get_position(trade.ticker)
 
+		bars = brokerage.get_last_three_bars(trade.ticker)
 
-		# Should never happen, but if it does and we have no position for a trade, mark it as invalid.
-		if position == False:
-			logging.error(f'Brokerage API could not find position for {trade.ticker}. Marking as invalid...')
-			trades_db.invalidate(trade.create_date)
-		# Otherwise, sync.
-		elif position == None:
-			logging.error(f'Brokerage API failed to return position for {trade.ticker}.')
-		else:
-			trades_db.sync(trade.create_date, position)
-			synced_trade = trades_db.get(trade.create_date)
+		if (bars == None):
+			logging.error('Brokerage API failed to return last three chart bars.')
+			continue
 
-		# Sell if stop loss hit or update trailing stop loss.
-		if synced_trade is not None:
-			bar = brokerage.get_last_bar(trade.ticker)
+		three_bar_avg = 0.0
 
-			if (bar == None):
-				logging.error('Brokerage API failed to return last chart bar.')
-				continue
+		for bar in bars:
+			three_bar_avg += bar.close
 
-			logging.debug(f'{trade.ticker}: PRICE {bar.close} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+		three_bar_avg = three_bar_avg / 3
 
-			# If it's less than the stop loss, we issue a sell order and mark the trade as selling.
-			if bar.close <= trade.stop_loss:
-				logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by PRICE {bar.close}. Selling {trade.shares} shares...')
+		bar = bars[0]
+
+		logging.debug(f'{trade.ticker}: PRICE {bar.close} TRIPLE AVERAGE {three_bar_avg} ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+
+		# If the three bar avg is less than or equal to the stop loss, we sell.
+		if three_bar_avg <= trade.stop_loss:
+			logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by TRIPLE AVERAGE {three_bar_avg}. Selling {trade.shares} shares...')
+			order_id = brokerage.sell(trade.ticker, trade.shares)
+			if order_id is not None:
+				trades_db.sell(trade.create_date, order_id)
+				prices = s.get_last_prices()
+				if trade.ticker in prices.keys():
+					del prices[trade.ticker + str(trade.id)]
+					s.set_last_prices(prices)
+			else:
+				logging.error('Brokerage API failed to complete sell order.')
+
+		if bar.close >= trade.planned_exit_price:
+			prices = s.get_last_prices()
+			prices['sell'+trade.ticker+str(trade.id)] = True
+			price = s.set_last_prices(prices)
+
+		prices = s.get_last_prices()
+		sale_triggered = True
+		if 'sell'+trade.ticker+str(trade.id) not in prices.keys() or prices['sell'+trade.ticker+str(trade.id)] == False: 
+			sale_triggered = False
+
+		# If it's over the planned exit price, we see if the price is below the three point average. If so, a downward trend has started and we sell.
+		if sale_triggered:
+
+			if three_bar_avg < bar.close:
+				logging.critical(f'{trade.ticker}: PRICE {bar.close} less than TRIPLE AVERAGE {three_bar_avg}. Trend has shifted. Selling {trade.shares} shares...')
 				order_id = brokerage.sell(trade.ticker, trade.shares)
 				if order_id is not None:
 					trades_db.sell(trade.create_date, order_id)
+					logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
 				else:
 					logging.error('Brokerage API failed to complete sell order.')
-
-			# If it's over the planned exit price, we see if the price has dropped since the last tick and if so, then we sell. If not, we continue to hold.
-			if bar.close >= trade.planned_exit_price:
-				prices = s.get_last_prices()
-
-				if trade.ticker not in prices.keys():
-					logging.critical(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}. Waiting until downward trend to sell...')
-					prices[trade.ticker] = bar.close
-					s.set_last_prices(prices)
-				elif float(prices[trade.ticker]) < bar.close:
-					logging.critical(f'{trade.ticker}: PRICE {bar.close} less than LAST PRICE {prices[trade.ticker]}. Trend has shifted. Selling {trade.shares} shares...')
-					order_id = brokerage.sell(trade.ticker, trade.shares)
-					if order_id is not None:
-						trades_db.sell(trade.create_date, order_id)
-						del prices[trade.ticker]
-						s.set_last_prices(prices)
-						logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
-					else:
-						logging.error('Brokerage API failed to complete sell order.')
-				else:
-					logging.critical(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend..')
-					prices[trade.ticker] = bar.close
-					s.set_last_prices(prices)
+			else:
+				logging.critical(f'{trade.ticker}: PRICE {bar.close} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend..')
 
 #Step 4
 def open_new_trades(brokerage, trades_db, s):
@@ -145,31 +174,42 @@ def open_new_trades(brokerage, trades_db, s):
 
 	# Createa closure around the buy logic so we can get a boolean
 	def buy_closure(trade, trades_db):
-		bar = brokerage.get_last_bar(trade.ticker)
+		bars = brokerage.get_last_three_bars(trade.ticker)
 
-		if (bar == None):
-			logging.error('Brokerage API failed to return last chart bar.')
+		if (bars == None):
+			logging.error('Brokerage API failed to return last three chart bars.')
 			return False
 
-		logging.debug(f'{trade.ticker}: PRICE {bar.close} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+		three_bar_avg = 0.0
+
+		for bar in bars:
+			three_bar_avg += bar.close
+
+		three_bar_avg = three_bar_avg / 3
+
+		bar = bars[0]
+
+		logging.debug(f'{trade.ticker}: PRICE {bar.close} TRIPLE AVERAGE {three_bar_avg} ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+
+		if bar.close >= trade.planned_min_entry_price and bar.close <= trade.planned_max_entry_price:
+			prices = s.get_last_prices()
+			prices['buy'+trade.ticker+str(trade.id)] = True
+			price = s.set_last_prices(prices)
 
 		prices = s.get_last_prices()
+		buy_triggered = True
+		if 'buy'+trade.ticker+str(trade.id) not in prices.keys() or prices['buy'+trade.ticker+str(trade.id)] == False: 
+			buy_triggered = False
 
-		if trade.ticker not in prices.keys():
-			prices[trade.ticker] = bar.close
-			s.set_last_prices(prices)
-			logging.critical(f'{trade.ticker} PRICE {bar.close} below ENTRY {trade.planned_entry_price}, but waiting for a shift to an upward trend before buying...')
-
-		logging.debug(f'Last Price {trade.ticker}: {float(prices[trade.ticker])}')
-		if bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss and bar.close < float(prices[trade.ticker]):
-			logging.critical(f'{trade.ticker} {bar.close} below ENTRY {trade.planned_entry_price}, but still in a downward trend...')
-		elif bar.close <= trade.planned_entry_price and bar.close < trade.stop_loss and bar.close < float(prices[trade.ticker]):
-			logging.critical(f'{trade.ticker} {bar.close} below ENTRY {trade.planned_entry_price} and below STOP LOSS {trade.stop_loss}. Cancelling trade...')
+		if buy_triggered and bar.close > trade.stop_loss and bar.close < three_bar_avg:
+			logging.critical(f'{trade.ticker} {bar.close} in between ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price}, but still in a downward trend...')
+		elif buy_triggered and bar.close < trade.stop_loss and bar.close < three_bar_avg:
+			logging.critical(f'{trade.ticker} {bar.close} in between ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} and below STOP LOSS {trade.stop_loss}. Cancelling trade...')
 			trades_db.stop_loss(trade.create_date)
-		# Only buy if the price is below the planned entry price, but above the stop loss and above the last recorded price
-		elif bar.close <= trade.planned_entry_price and bar.close > trade.stop_loss and bar.close > float(prices[trade.ticker]):
+		# Only buy if the price is below the planned entry price, but above the stop loss and above the triple average
+		elif buy_triggered and bar.close > trade.stop_loss and bar.close > three_bar_avg:
 			buying_power = brokerage.get_buying_power()
-			logging.debug(f'{trade.ticker} PRICE {bar.close} below ENTRY {trade.planned_entry_price} and in an upward trend. Executing buy for {trade.shares} shares....')
+			logging.debug(f'{trade.ticker} PRICE {bar.close} in between ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} and in an upward trend. Executing buy for {trade.shares} shares....')
 
 			if (buying_power == None):
 				logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
@@ -197,9 +237,6 @@ def open_new_trades(brokerage, trades_db, s):
 				return True
 			else:
 				logging.error('Brokerage API failed to complete buy order.')
-		
-		prices[trade.ticker] = bar.close
-		s.set_last_prices(prices)
 		
 		return False
 

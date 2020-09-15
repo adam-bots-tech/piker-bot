@@ -12,7 +12,7 @@ import bot_configuration
 s = state_db.StateDB(bot_configuration.DATA_FOLDER + bot_configuration.DATABASE_NAME)
 
 #Override with a sub class in tests
-b = brokerage.Brokerage(bot_configuration.ALPACA_PAPER_TRADING_ON, bot_configuration.ALPACA_KEY_ID, bot_configuration.ALPACA_SECRET_KEY)
+b = brokerage.Brokerage(bot_configuration.ALPACA_PAPER_TRADING_ON, bot_configuration.ALPACA_KEY_ID, bot_configuration.ALPACA_SECRET_KEY, bot_configuration.DATA_FOLDER)
 
 j = trade_journal.TradeJournal(bot_configuration.TRADE_JOURNAL_TITLE)
 
@@ -40,8 +40,8 @@ def pulse():
 			logging.critical('Market has opened')
 
 		trades_manager.expire_trades(b, db)
-		trades_manager.handle_open_buy_orders(b, db)
-		trades_manager.handle_open_sell_orders(b, db)
+		trades_manager.handle_open_buy_orders(b, db, s)
+		trades_manager.handle_open_sell_orders(b, db, s)
 		trades_manager.handle_open_trades(b, db, s)
 		trades_manager.open_new_trades(b, db, s)
 	except requests.exceptions.ConnectionError as conn:
@@ -58,8 +58,8 @@ def pull_queued_trades():
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
-		trade = db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6])
-		j.create_trade_record(trade, row[5], row[7], row[8])
-		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
+		trade = db.create_new_long_trade(row[0], row[2], row[3], row[4], row[5], row[7])
+		j.create_trade_record(trade, row[6], row[8], row[9])
+		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}, {row[5]}]')
 
 	j.reset_queued_trades(header_row)

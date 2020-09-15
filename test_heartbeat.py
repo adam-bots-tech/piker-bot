@@ -10,11 +10,12 @@ from position import Position
 from order import Order
 import trade_journal
 import pandas as pd
+import cache
 
 class TestTradeJournal(trade_journal.TradeJournal):
 
 	def __init__(self):
-		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', 'notes', 'expiration', 'metadata', 'base64']]
+		self.rows = [['ticker', 'type', 'min_entry', 'max_entry' 'exit', 'stop_loss', 'notes', 'expiration', 'metadata', 'base64']]
 
 	def get_queued_trades(self):
 		return self.rows
@@ -22,8 +23,8 @@ class TestTradeJournal(trade_journal.TradeJournal):
 	def reset_queued_trades(self, headerRow):
 		self.rows=[headerRow]
 
-	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata, base64):
-		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata, base64])
+	def create_queued_trade(self, row_num, ticker, type, min_entry, max_entry, exit, stop_loss, notes, expiration, metadata, base64):
+		self.rows.append([ticker, type, min_entry, max_entry, exit, stop_loss, notes, expiration, metadata, base64])
 
 
 	def create_trade_record(self, trade, notes, metadata, base64):
@@ -37,90 +38,235 @@ class TestTradeJournal(trade_journal.TradeJournal):
 
 class TestBrokerage(brokerage.Brokerage):
 	def __init__(self):
+		self.data_folder = bot_configuration.DATA_FOLDER
 		self.bars = {
 			'TSLA': [
 				# Pulse 0 - Store entry price in state database
-				Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0})
+				],
 				# Pulse 1 - Next bar tick triggers the buy order
-				Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0}),
+				[
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0})
+				],
 				# Pulse 2 - Order is filled and trade is now open. Storing price in state database
-				Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0})
+				],
 				# Pulse 3 - Store exit price in database
-				Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0})
+				],
 				# Pulse 4 - Issuing sell order at 523.1
-				Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+				[
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0})
+				],
 				# Pulse 5 - Do nothing; order is coming back as replaced
-				Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+				[
+					Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0})
+				]
 			],
 			'AAPL': [
 				# Pulse 0 - Do nothing
-				Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 404.0,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
+				],
 				# Pulse 1 - Store entry price in state database
-				Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 398.0,"v": 0}),
+				[
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.8,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
+				],
 				# Pulse 2 - Next bar tick triggers the buy order
-				Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 398.1,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.99,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.8,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
+				],
 				# Pulse 3 - Do nothing; order is coming back as replaced
-				Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 403.0,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 403.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.99,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.8,"v": 0}),
+				],
 				# Pulse 4 - Do nothing
-				Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 386.0,"v": 0}),
+				[
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 386.0,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 403.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.99,"v": 0}),
+				],
 				# Pulse 5 - Hit stop loss; sell at 383.0
-				Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 383.0,"v": 0}),
+				[
+					Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 360.0,"v": 0}),
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 386.0,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 403.0,"v": 0}),
+				],
 			],
 			'FB': [
 				# Pulse 0 - Store entry price in state database
-				Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+				[
+					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+				],
 				# Pulse 1 - Buy
-				Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+				[
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+				],
 				# Pulse 2 - Storing exit price in database
-				Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
+				],
 				# Pulse 3 - Sell
-				Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 329.0,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 329.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+				],
 				# Pulse 4 - Do nothing
-				Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+				[
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 329.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+				],
 				# Pulse 5 - Do nothing
-				Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+				[
+					Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 329.0,"v": 0}),
+				],
 			],
 			'AMZN': [
 				# Pulse 0 - Store the entry price in state database
-				Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+				],
 				# Pulse 1 - Buy
-				Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+				],
 				# Pulse 2 - Do nothing; order is coming back as expired
-				Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
+				],
 				# Pulse 3 - Do nothing
-				Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+				],
 				# Pulse 4 - Do nothing
-				Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+				],
 				# Pulse 5 - Do nothing
-				Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
+				],
 			],
 			'GOOG': [
 				# Pulse 0 - Store the entry price in state database
-				Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+				],
 				# Pulse 1 - Buy
-				Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+				],
 				# Pulse 2 - Store the exit price in the database
-				Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
+				],
 				# Pulse 3 - Sell at 365
-				Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 365.0,"v": 0}),
+				[
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 365.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+				],
 				# Pulse 4 - Do nothing
-				Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+				[
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 365.0,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+				],
 				# Pulse 5 - Do nothing
-				Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+				[
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
+					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 365.0,"v": 0}),
+				],
 			],
 			'MSFT': [
 				# Pulse 0 - Store the entry price in state database
-				Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+				],
 				# Pulse 1 - Buy
-				Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+				[
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+				],
 				# Pulse 2 - Do nothing; order is coming back as cacnelled
-				Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
+				],
 				# Pulse 3 - Do nothing
-				Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+				],
 				# Pulse 4 - Do nothing
-				Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+				],
 				# Pulse 5 - Do nothing
-				Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+				[
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
+				],
 			]
 		}
 
@@ -136,7 +282,7 @@ class TestBrokerage(brokerage.Brokerage):
 		}
 		return positions[ticker]
 
-	def get_last_bar(self, ticker):
+	def get_last_three_bars(self, ticker):
 		bars_copy = copy.copy(self.bars[ticker])
 		del self.bars[ticker][0]
 		return bars_copy[0]
@@ -163,18 +309,18 @@ class TestBrokerage(brokerage.Brokerage):
 
 	def get_order(self, order_id):
 		orders = {
-			'S1': Order('S1', 'replaced', 523.1, 5, 'R1'), #TSLA
-			'S2': Order('S2', 'filled', 383.0, 10, ''), #AAPL
-			'S3': Order('S3', 'expired', 329.0, 15, ''), #FB
-			'S5': Order('S5', 'canceled', 365.0, 15, ''), #GOOG
-			'B1': Order('B1', 'filled', 499.1, 5, ''), #TSLA
-			'B2': Order('B2', 'replaced', 398.1, 10, 'R2'), #AAPL
-			'B3': Order('B3', 'filled', 299.6, 15, ''), #FB
+			'S1': Order('S1', 'replaced', 523.1, 50, 'R1'), #TSLA
+			'S2': Order('S2', 'filled', 383.0, 62, ''), #AAPL
+			'S3': Order('S3', 'expired', 329.0, 83, ''), #FB
+			'S5': Order('S5', 'canceled', 365.0, 71, ''), #GOOG
+			'B1': Order('B1', 'filled', 499.1, 50, ''), #TSLA
+			'B2': Order('B2', 'replaced', 398.1, 62, 'R2'), #AAPL
+			'B3': Order('B3', 'filled', 299.6, 83, ''), #FB
 			'B4': Order('B4', 'expired', 1999.6, 20, ''), #AMZN
-			'B5': Order('B5', 'filled', 349.1, 15, ''), #GOOG
+			'B5': Order('B5', 'filled', 349.1, 71, ''), #GOOG
 			'B6': Order('B6', 'canceled', 199.9, 20, ''), #MSFT
-			'R1': Order('R1', 'filled', 523.1, 5, ''), #TSLA
-			'R2': Order('R2', 'filled', 398.1, 10, ''), #AAPL
+			'R1': Order('R1', 'filled', 523.1, 50, ''), #TSLA
+			'R2': Order('R2', 'filled', 398.1, 62, ''), #AAPL
 		}
 		return orders[order_id]
 
@@ -220,12 +366,12 @@ heartbeat.j = TestTradeJournal()
 heartbeat.db.journal = heartbeat.j
 
 #Create the trades
-heartbeat.j.create_queued_trade(2,'TSLA', 'long', 500.0, 520.0, 490.0, '', 1, '', '') #Replace the sell order and sell at a gain
-heartbeat.j.create_queued_trade(3,'AAPL', 'long', 400.0, 450.0, 384.0, '', 1, '', '') #Replace the buy order and sell at a loss
-heartbeat.j.create_queued_trade(4,'FB', 'long', 300.0, 330.0, 285.0, '', 1, '', '') #Expire the sale
-heartbeat.j.create_queued_trade(5,'AMZN', 'long', 2000.0, 2200.0, 1900.00, '', 1, '', '') #Expire the buy
-heartbeat.j.create_queued_trade(6,'GOOG', 'long', 350.0, 365.0, 343.0, '', 1, '', '') #Expire the sale
-heartbeat.j.create_queued_trade(7,'MSFT', 'long', 200.0, 240.0, 187.0, '', 1, '', '') #Expire the buy
+heartbeat.j.create_queued_trade(2,'TSLA', 'long', 498.0, 500.0, 520.0, 490.0, '', 1, '', '') #Replace the sell order and sell at a gain
+heartbeat.j.create_queued_trade(3,'AAPL', 'long', 398.0, 400.0, 450.0, 384.0, '', 1, '', '') #Replace the buy order and sell at a loss
+heartbeat.j.create_queued_trade(4,'FB', 'long', 298.0, 300.0, 330.0, 285.0, '', 1, '', '') #Expire the sale
+heartbeat.j.create_queued_trade(5,'AMZN', 'long', 1998.0, 2000.0, 2200.0, 1900.00, '', 1, '', '') #Expire the buy
+heartbeat.j.create_queued_trade(6,'GOOG', 'long', 347.0, 350.0, 365.0, 343.0, '', 1, '', '') #Expire the sale
+heartbeat.j.create_queued_trade(7,'MSFT', 'long', 196.0, 200.0, 240.0, 187.0, '', 1, '', '') #Expire the buy
 
 
 # PULSE 1
@@ -242,7 +388,7 @@ msft = heartbeat.db.get_by_ticker('MSFT')
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
 assert tsla.shares == 0.0, f"TSLA shares {tsla.shares}"
-assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
+assert tsla.planned_max_entry_price == 500.0, f"TSLA planned_max_entry_price {tsla.planned_max_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
 assert tsla.status == 'QUEUED', f"TSLA status {tsla.status}"
@@ -257,7 +403,7 @@ assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
 assert aapl.shares == 0.0, f"AAPL shares {aapl.shares}"
-assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
+assert aapl.planned_max_entry_price == 400.0, f"AAPL planned_max_entry_price {aapl.planned_max_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
 assert aapl.status == 'QUEUED', f"AAPL status {aapl.status}"
@@ -272,7 +418,7 @@ assert aapl.create_date is not None, f"AAPL create_date {aapl.create_date}"
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
 assert fb.shares == 0.0, f"FB shares {fb.shares}"
-assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
+assert fb.planned_max_entry_price == 300.0, f"FB planned_max_entry_price {fb.planned_max_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
 assert fb.status == 'QUEUED', f"FB status {fb.status}"
@@ -287,7 +433,7 @@ assert fb.create_date is not None, f"FB create_date {fb.create_date}"
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
 assert amzn.shares == 0.0, f"AMZN shares {amzn.shares}"
-assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
+assert amzn.planned_max_entry_price == 2000.0, f"AMZN planned_max_entry_price {amzn.planned_max_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
 assert amzn.status == 'QUEUED', f"AMZN status {amzn.status}"
@@ -302,7 +448,7 @@ assert amzn.create_date is not None, f"AMZN create_date {amzn.create_date}"
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
 assert goog.shares == 0.0, f"GOOG shares {goog.shares}"
-assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
+assert goog.planned_max_entry_price == 350.0, f"GOOG planned_max_entry_price {goog.planned_max_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
 assert goog.status == 'QUEUED', f"GOOG status {goog.status}"
@@ -317,7 +463,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
 assert msft.shares == 0.0, f"MSFT shares {msft.shares}"
-assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
+assert msft.planned_max_entry_price == 200.0, f"MSFT planned_max_entry_price {msft.planned_max_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
 assert msft.status == 'QUEUED', f"MSFT status {msft.status}"
@@ -343,7 +489,7 @@ msft = heartbeat.db.get(msft.create_date)
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
 assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
-assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
+assert tsla.planned_max_entry_price == 500.0, f"TSLA planned_max_entry_price {tsla.planned_max_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
 assert tsla.status == 'BUYING', f"TSLA status {tsla.status}"
@@ -358,7 +504,7 @@ assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
 assert aapl.shares == 0.0, f"AAPL shares {aapl.shares}"
-assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
+assert aapl.planned_max_entry_price == 400.0, f"AAPL planned_max_entry_price {aapl.planned_max_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
 assert aapl.status == 'QUEUED', f"AAPL status {aapl.status}"
@@ -373,7 +519,7 @@ assert aapl.create_date is not None, f"AAPL create_date {aapl.create_date}"
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
 assert fb.shares == 83.0, f"FB shares {fb.shares}"
-assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
+assert fb.planned_max_entry_price == 300.0, f"FB planned_max_entry_price {fb.planned_max_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285, f"FB stop_loss {fb.stop_loss}"
 assert fb.status == 'BUYING', f"FB status {fb.status}"
@@ -388,7 +534,7 @@ assert fb.create_date is not None, f"FB create_date {fb.create_date}"
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
 assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
-assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
+assert amzn.planned_max_entry_price == 2000.0, f"AMZN planned_max_entry_price {amzn.planned_max_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
 assert amzn.status == 'BUYING', f"AMZN status {amzn.status}"
@@ -403,7 +549,7 @@ assert amzn.create_date is not None, f"AMZN create_date {amzn.create_date}"
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
 assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
-assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
+assert goog.planned_max_entry_price == 350.0, f"GOOG planned_max_entry_price {goog.planned_max_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
 assert goog.status == 'BUYING', f"GOOG status {goog.status}"
@@ -418,7 +564,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
 assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
-assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
+assert msft.planned_max_entry_price == 200.0, f"MSFT planned_max_entry_price {msft.planned_max_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
 assert msft.status == 'BUYING', f"MSFT status {msft.status}"
@@ -447,7 +593,7 @@ msft = heartbeat.db.get(msft.create_date)
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
 assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
-assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
+assert tsla.planned_max_entry_price == 500.0, f"TSLA planned_max_entry_price {tsla.planned_max_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
 assert tsla.status == 'SELLING', f"TSLA status {tsla.status}"
@@ -462,7 +608,7 @@ assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
 assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
-assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
+assert aapl.planned_max_entry_price == 400.0, f"AAPL planned_max_entry_price {aapl.planned_max_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
 assert aapl.status == 'BUYING', f"AAPL status {aapl.status}"
@@ -477,7 +623,7 @@ assert aapl.create_date is not None, f"AAPL create_date {aapl.create_date}"
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
 assert fb.shares == 83.0, f"FB shares {fb.shares}"
-assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
+assert fb.planned_max_entry_price == 300.0, f"FB planned_max_entry_price {fb.planned_max_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
 assert fb.status == 'SELLING', f"FB status {fb.status}"
@@ -492,7 +638,7 @@ assert fb.create_date is not None, f"FB create_date {fb.create_date}"
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
 assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
-assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
+assert amzn.planned_max_entry_price == 2000.0, f"AMZN planned_max_entry_price {amzn.planned_max_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
 assert amzn.status == 'EXPIRED', f"AMZN status {amzn.status}"
@@ -507,7 +653,7 @@ assert amzn.create_date is not None, f"AMZN create_date {amzn.create_date}"
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
 assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
-assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
+assert goog.planned_max_entry_price == 350.0, f"GOOG planned_max_entry_price {goog.planned_max_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
 assert goog.status == 'SELLING', f"GOOG status {goog.status}"
@@ -522,7 +668,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
 assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
-assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
+assert msft.planned_max_entry_price == 200.0, f"MSFT planned_max_entry_price {msft.planned_max_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
 assert msft.status == 'CANCELED', f"MSFT status {msft.status}"
@@ -548,7 +694,7 @@ msft = heartbeat.db.get(msft.create_date)
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
 assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
-assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
+assert tsla.planned_max_entry_price == 500.0, f"TSLA planned_max_entry_price {tsla.planned_max_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
 assert tsla.status == 'SELLING', f"TSLA status {tsla.status}"
@@ -563,7 +709,7 @@ assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
 assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
-assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
+assert aapl.planned_max_entry_price == 400.0, f"AAPL planned_max_entry_price {aapl.planned_max_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
 assert aapl.status == 'BUYING', f"AAPL status {aapl.status}"
@@ -578,7 +724,7 @@ assert aapl.create_date is not None, f"AAPL create_date {aapl.create_date}"
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
 assert fb.shares == 83.0, f"FB shares {fb.shares}"
-assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
+assert fb.planned_max_entry_price == 300.0, f"FB planned_max_entry_price {fb.planned_max_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
 assert fb.status == 'SALE_EXPIRED', f"FB status {fb.status}"
@@ -593,7 +739,7 @@ assert fb.create_date is not None, f"FB create_date {fb.create_date}"
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
 assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
-assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
+assert amzn.planned_max_entry_price == 2000.0, f"AMZN planned_max_entry_price {amzn.planned_max_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
 assert amzn.status == 'EXPIRED', f"AMZN status {amzn.status}"
@@ -608,7 +754,7 @@ assert amzn.create_date is not None, f"AMZN create_date {amzn.create_date}"
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
 assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
-assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
+assert goog.planned_max_entry_price == 350.0, f"GOOG planned_max_entry_price {goog.planned_max_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
 assert goog.status == 'SALE_CANCELED', f"GOOG status {goog.status}"
@@ -623,7 +769,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
 assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
-assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
+assert msft.planned_max_entry_price == 200.0, f"MSFT planned_max_entry_price {msft.planned_max_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
 assert msft.status == 'CANCELED', f"MSFT status {msft.status}"
@@ -649,7 +795,7 @@ msft = heartbeat.db.get(msft.create_date)
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
 assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
-assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
+assert tsla.planned_max_entry_price == 500.0, f"TSLA planned_max_entry_price {tsla.planned_max_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
 assert tsla.status == 'CLOSED', f"TSLA status {tsla.status}"
@@ -664,7 +810,7 @@ assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
 assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
-assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
+assert aapl.planned_max_entry_price == 400.0, f"AAPL planned_max_entry_price {aapl.planned_max_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
 assert aapl.status == 'OPEN', f"AAPL status {aapl.status}"
@@ -679,7 +825,7 @@ assert aapl.create_date is not None, f"AAPL create_date {aapl.create_date}"
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
 assert fb.shares == 83.0, f"FB shares {fb.shares}"
-assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
+assert fb.planned_max_entry_price == 300.0, f"FB planned_max_entry_price {fb.planned_max_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
 assert fb.status == 'SALE_EXPIRED', f"FB status {fb.status}"
@@ -694,7 +840,7 @@ assert fb.create_date is not None, f"FB create_date {fb.create_date}"
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
 assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
-assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
+assert amzn.planned_max_entry_price == 2000.0, f"AMZN planned_max_entry_price {amzn.planned_max_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
 assert amzn.status == 'EXPIRED', f"AMZN status {amzn.status}"
@@ -709,7 +855,7 @@ assert amzn.create_date is not None, f"AMZN create_date {amzn.create_date}"
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
 assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
-assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
+assert goog.planned_max_entry_price == 350.0, f"GOOG planned_max_entry_price {goog.planned_max_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
 assert goog.status == 'SALE_CANCELED', f"GOOG status {goog.status}"
@@ -724,7 +870,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
 assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
-assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
+assert msft.planned_max_entry_price == 200.0, f"MSFT planned_max_entry_price {msft.planned_max_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
 assert msft.status == 'CANCELED', f"MSFT status {msft.status}"
@@ -750,7 +896,7 @@ msft = heartbeat.db.get(msft.create_date)
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
 assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
-assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
+assert tsla.planned_max_entry_price == 500.0, f"TSLA planned_max_entry_price {tsla.planned_max_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
 assert tsla.status == 'CLOSED', f"TSLA status {tsla.status}"
@@ -765,7 +911,7 @@ assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 #AAPL 
 assert aapl.ticker == 'AAPL', f"AAPL ticker {aapl.ticker}"
 assert aapl.shares == 62.0, f"AAPL shares {aapl.shares}"
-assert aapl.planned_entry_price == 400.0, f"AAPL planned_entry_price {aapl.planned_entry_price}"
+assert aapl.planned_max_entry_price == 400.0, f"AAPL planned_max_entry_price {aapl.planned_max_entry_price}"
 assert aapl.planned_exit_price == 450.0, f"AAPL planned_exit_price {aapl.planned_exit_price}"
 assert aapl.stop_loss == 384.0, f"AAPL stop_loss {aapl.stop_loss}"
 assert aapl.status == 'SELLING', f"AAPL status {aapl.status}"
@@ -780,7 +926,7 @@ assert aapl.create_date is not None, f"AAPL create_date {aapl.create_date}"
 #FB 
 assert fb.ticker == 'FB', f"FB ticker {fb.ticker}"
 assert fb.shares == 83.0, f"FB shares {fb.shares}"
-assert fb.planned_entry_price == 300.0, f"FB planned_entry_price {fb.planned_entry_price}"
+assert fb.planned_max_entry_price == 300.0, f"FB planned_max_entry_price {fb.planned_max_entry_price}"
 assert fb.planned_exit_price == 330.0, f"FB planned_exit_price {fb.planned_exit_price}"
 assert fb.stop_loss == 285.0, f"FB stop_loss {fb.stop_loss}"
 assert fb.status == 'SALE_EXPIRED', f"FB status {fb.status}"
@@ -795,7 +941,7 @@ assert fb.create_date is not None, f"FB create_date {fb.create_date}"
 #AMZN 
 assert amzn.ticker == 'AMZN', f"AMZN ticker {amzn.ticker}"
 assert amzn.shares == 12.0, f"AMZN shares {amzn.shares}"
-assert amzn.planned_entry_price == 2000.0, f"AMZN planned_entry_price {amzn.planned_entry_price}"
+assert amzn.planned_max_entry_price == 2000.0, f"AMZN planned_max_entry_price {amzn.planned_max_entry_price}"
 assert amzn.planned_exit_price == 2200.0, f"AMZN planned_exit_price {amzn.planned_exit_price}"
 assert amzn.stop_loss == 1900.0, f"AMZN stop_loss {amzn.stop_loss}"
 assert amzn.status == 'EXPIRED', f"AMZN status {amzn.status}"
@@ -810,7 +956,7 @@ assert amzn.create_date is not None, f"AMZN create_date {amzn.create_date}"
 #GOOG 
 assert goog.ticker == 'GOOG', f"GOOG ticker {goog.ticker}"
 assert goog.shares == 71.0, f"GOOG shares {goog.shares}"
-assert goog.planned_entry_price == 350.0, f"GOOG planned_entry_price {goog.planned_entry_price}"
+assert goog.planned_max_entry_price == 350.0, f"GOOG planned_max_entry_price {goog.planned_max_entry_price}"
 assert goog.planned_exit_price == 365.0, f"GOOG planned_exit_price {goog.planned_exit_price}"
 assert goog.stop_loss == 343.0, f"GOOG stop_loss {goog.stop_loss}"
 assert goog.status == 'SALE_CANCELED', f"GOOG status {goog.status}"
@@ -825,7 +971,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
 assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
-assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
+assert msft.planned_max_entry_price == 200.0, f"MSFT planned_max_entry_price {msft.planned_max_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
 assert msft.status == 'CANCELED', f"MSFT status {msft.status}"
