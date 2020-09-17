@@ -5,10 +5,14 @@ Stock trading bot for executing swing trades over days to weeks.
 ## Features
 - Reads queued trades from a Google spreadsheet in my Google drive and adds them to local sqlite3 database
 - Heartbeat pulses every minute and checks the price on stocks being traded.
-- Bot purchases the stock when it falls below the entry price while still being above the stop loss and the closing price from the previous heartbeat pulse.
-	- This is to ensure the stock is bought when a potential upwards trend has started. Does not buy if the stock goes straight down from the entry price to the stop loss.
-- Bot will sell the stock when the stop loss is hit. If the exit price is hit, it will wait until the price drops below the closing price from the previous heartbeat pulse.
-	- No point in selling if the stock is just going up with every heartbeat pulse. We wait for a shift in trend to sell.
+- Bot purchases the stock when two conditions are met
+	- Price has entered into entry price range.
+	- Price moves above SMA3, signaling the start of an uptrend.
+- If the price moves into the entry range and falls below the stop loss without shifting into an uptrend, the trade is cancelled.
+- Bot will sell the stock when two conditions are met
+	- Price moves above the exit price
+	- Prices move below SM3, signalling the start of a downtrend
+- Shares to purchase is calculated at the time of the sale, based on how many can be purchased using a percentage of the total brokerage account.
 - As the trade progreses, the bot automatically updates the sqlite3 database and the trade journal in Google Drive.
 
 ## Libraries
@@ -25,6 +29,6 @@ Requires a number of libraries available on pip as well as a plotly-orca install
 
 I had a docker image, but it was too difficult to get the logging to work with crontab, so it has been sidelined for the time being.
 
-You can execute main-pulse.py to fire the heartbeat pulse every minute or run main-scheduler.py to activate
+You can execute main-pulse.py to fire the heartbeat pulse onxw or run main-scheduler.py to activate
 the scheduler and begin pulsing the heartbeat every minute for an eternity.
 
