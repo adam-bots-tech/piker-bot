@@ -176,6 +176,10 @@ def open_new_trades(brokerage, trades_db, s):
 				logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
 				return False
 
+			if (buying_power == False):
+				logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
+				return False
+
 			if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
 				logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
 				trades_db.out_of_money(trade.create_date)
