@@ -5,7 +5,6 @@ from datetime import timedelta
 import math
 import technical_analysis as ta
 import json
-import candlestick
 import stock_math
 
 def pull_queued_trades(trades_db, journal):
@@ -18,7 +17,7 @@ def pull_queued_trades(trades_db, journal):
 			continue
 
 		trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[5], row[7])
-		journal.create_trade_record(trade, row[6], row[8], row[9])
+		journal.create_trade_record(trade, row[6], row[8])
 		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}, {row[5]}]')
 
 	journal.reset_queued_trades(header_row)
@@ -56,7 +55,7 @@ def handle_open_buy_orders(brokerage, trades_db, s):
 			s.remove_buy_price_marker(trade.ticker, trade.id)
 		elif order.status == 'filled':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} filled at {order.sale_price}. (Order ID: {order.order_id})')
-			trades_db.open(trade.create_date, order.shares, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
+			trades_db.open(trade.create_date, order.shares, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)))
 			s.remove_buy_price_marker(trade.ticker, trade.id)
 		elif order.status == 'replaced':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
@@ -85,7 +84,7 @@ def handle_open_sell_orders(brokerage, trades_db, s):
 			s.remove_sale_price_marker(trade.ticker, trade.id)
 		elif order.status == 'filled':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} filled at {order.sale_price}. (Order ID: {order.order_id})')
-			trades_db.close(trade.create_date, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)), candlestick.create_15_minute_base64(trade.ticker, brokerage))
+			trades_db.close(trade.create_date, order.sale_price, json.dumps(ta.analyze(trade.ticker, brokerage)))
 			s.remove_sale_price_marker(trade.ticker, trade.id)
 		elif order.status == 'replaced':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
