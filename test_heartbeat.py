@@ -49,21 +49,21 @@ class TestBrokerage(brokerage.Brokerage):
 				],
 				# Pulse 1 - Next bar tick triggers the buy order
 				[
-					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 500.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0})
 				],
 				# Pulse 2 - Order is filled and trade is now open. Storing price in state database
 				[
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0}),
-					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 500.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.0,"v": 0})
 				],
 				# Pulse 3 - Store exit price in database
 				[
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0}),
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0}),
-					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 499.1,"v": 0})
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 500.1,"v": 0})
 				],
 				# Pulse 4 - Issuing sell order at 523.1
 				[
@@ -93,21 +93,21 @@ class TestBrokerage(brokerage.Brokerage):
 				],
 				# Pulse 2 - Next bar tick triggers the buy order
 				[
-					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.99,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
 					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.8,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
 				],
 				# Pulse 3 - Do nothing; order is coming back as replaced
 				[
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 403.0,"v": 0}),
-					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.99,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
 					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.8,"v": 0}),
 				],
 				# Pulse 4 - Do nothing
 				[
 					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 386.0,"v": 0}),
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 403.0,"v": 0}),
-					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 399.99,"v": 0}),
+					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 400.1,"v": 0}),
 				],
 				# Pulse 5 - Hit stop loss; sell at 383.0
 				[
@@ -125,21 +125,21 @@ class TestBrokerage(brokerage.Brokerage):
 				],
 				# Pulse 1 - Buy
 				[
-					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 300.1,"v": 0}),
 					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
 					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
 				],
 				# Pulse 2 - Storing exit price in database
 				[
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
-					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 300.1,"v": 0}),
 					Bar({"t": 0, "o": 0.0,"h": 0.0,"l": 0.0,"c": 299.5,"v": 0}),
 				],
 				# Pulse 3 - Sell
 				[
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 329.0,"v": 0}),
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 330.1,"v": 0}),
-					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 299.6,"v": 0}),
+					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 300.1,"v": 0}),
 				],
 				# Pulse 4 - Do nothing
 				[
@@ -163,21 +163,21 @@ class TestBrokerage(brokerage.Brokerage):
 				],
 				# Pulse 1 - Buy
 				[
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 2000.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
 				],
 				# Pulse 2 - Do nothing; order is coming back as expired
 				[
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 2000.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.5,"v": 0}),
 				],
 				# Pulse 3 - Do nothing
 				[
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.4,"v": 0}),
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 1999.6,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 2000.1,"v": 0}),
 				],
 				# Pulse 4 - Do nothing
 				[
@@ -201,21 +201,21 @@ class TestBrokerage(brokerage.Brokerage):
 				],
 				# Pulse 1 - Buy
 				[
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 350.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
 				],
 				# Pulse 2 - Store the exit price in the database
 				[
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 350.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.0,"v": 0}),
 				],
 				# Pulse 3 - Sell at 365
 				[
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 365.0,"v": 0}),
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 366.0,"v": 0}),
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 349.1,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 350.1,"v": 0}),
 				],
 				# Pulse 4 - Do nothing
 				[
@@ -239,21 +239,21 @@ class TestBrokerage(brokerage.Brokerage):
 				],
 				# Pulse 1 - Buy
 				[
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 200.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
 				],
 				# Pulse 2 - Do nothing; order is coming back as cacnelled
 				[
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 200.1,"v": 0}),
 					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.8,"v": 0}),
 				],
 				# Pulse 3 - Do nothing
 				[
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.7,"v": 0}),
-					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 199.9,"v": 0}),
+					Bar({"t": 0,"o": 0.0,"h": 0.0,"l": 0.0,"c": 200.1,"v": 0}),
 				],
 				# Pulse 4 - Do nothing
 				[
@@ -488,7 +488,7 @@ msft = heartbeat.db.get(msft.create_date)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
-assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
+assert tsla.shares == 49.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
@@ -563,7 +563,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 124.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -667,7 +667,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 124.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -768,7 +768,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 124.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -869,7 +869,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 124.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
@@ -970,7 +970,7 @@ assert goog.create_date is not None, f"GOOG create_date {goog.create_date}"
 
 #MSFT 
 assert msft.ticker == 'MSFT', f"MSFT ticker {msft.ticker}"
-assert msft.shares == 125.0, f"MSFT shares {msft.shares}"
+assert msft.shares == 124.0, f"MSFT shares {msft.shares}"
 assert msft.planned_entry_price == 200.0, f"MSFT planned_entry_price {msft.planned_entry_price}"
 assert msft.planned_exit_price == 240.0, f"MSFT planned_exit_price {msft.planned_exit_price}"
 assert msft.stop_loss == 187.0, f"MSFT stop_loss {msft.stop_loss}"
