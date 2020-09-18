@@ -29,7 +29,7 @@ def pulse():
 			if s.get_market_open() == True:
 				logging.critical('Market has closed.')
 				s.set_market_open(False)
-			return
+			exit()
 
 		if s.get_market_open() == False:
 			s.set_market_open(True)
@@ -41,7 +41,9 @@ def pulse():
 		trades_manager.handle_open_trades(b, db, s)
 		trades_manager.open_new_trades(b, db, s)
 
+
 	except requests.exceptions.ConnectionError as conn:
 		logging.critical(f'Bad connection. {conn.message}')
+
 	except Exception as err:
 		logging.error('Exception occured during heartbeat:', exc_info=err)

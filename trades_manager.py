@@ -209,4 +209,3 @@ def open_new_trades(brokerage, trades_db, s):
 	# Get all queued trades in database
 	for trade in queued_trades:
 		buy_closure(trade, trades_db)
-
