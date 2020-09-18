@@ -16,9 +16,9 @@ def pull_queued_trades(trades_db, journal):
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
-		trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[5], row[7])
-		journal.create_trade_record(trade, row[6], row[8])
-		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}, {row[5]}]')
+		trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6])
+		journal.create_trade_record(trade, row[5], row[7])
+		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
 
 	journal.reset_queued_trades(header_row)
 
@@ -107,7 +107,7 @@ def handle_open_trades(brokerage, trades_db, s):
 		sma3 = stock_math.sma_close(bars)
 		bar = bars[0]
 
-		logging.debug(f'{trade.ticker}: OPEN PRICE {bar.close} TRIPLE AVERAGE {sma3} ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+		logging.debug(f'{trade.ticker}: OPEN PRICE {bar.close} TRIPLE AVERAGE {sma3} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
 		# If the sma3 is less than or equal to the stop loss, we sell.
 		if sma3 <= trade.stop_loss:
@@ -154,18 +154,18 @@ def open_new_trades(brokerage, trades_db, s):
 		sma3 = stock_math.sma_close(bars)
 		bar = bars[0]
 
-		logging.debug(f'{trade.ticker}: QUEUED PRICE {bar.close} TRIPLE AVERAGE {sma3} ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+		logging.debug(f'{trade.ticker}: QUEUED PRICE {bar.close} TRIPLE AVERAGE {sma3} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
 		# Setting a marker that the price has moved into the entry range in case it immediately reverses trend.
-		if bar.close >= trade.planned_min_entry_price and bar.close <= trade.planned_max_entry_price:
+		if bar.close > trade.stop_loss and bar.close <= trade.planned_entry_price:
 			s.set_buy_price_marker(trade.ticker, trade.id)
 
 		buy_triggered = s.get_buy_price_marker(trade.ticker, trade.id)
 
 		if buy_triggered and bar.close > trade.stop_loss and bar.close < sma3:
-			logging.critical(f'{trade.ticker} moved in between ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price}, but still in a downward trend... (PRICE {bar.close})')
+			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close})')
 		elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma3:
-			logging.critical(f'{trade.ticker} moved in between ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price}, but PRICE {bar.close} below STOP LOSS {trade.stop_loss}. Cancelling trade...')
+			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but PRICE {bar.close} below STOP LOSS {trade.stop_loss}. Cancelling trade...')
 			trades_db.stop_loss(trade.create_date)
 		# Only buy if the price is below the planned entry price, but above the stop loss and above the sma3
 		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma3:
@@ -191,7 +191,7 @@ def open_new_trades(brokerage, trades_db, s):
 
 			# Shares are dynamically calculated from a percentage of the total brokerage account
 			shares = math.trunc(trade_amount / bar.close)
-			logging.debug(f'{trade.ticker} moved in between ENTRY {trade.planned_min_entry_price}-{trade.planned_max_entry_price} and in an upward trend. Executing buy for {trade.shares} shares at PRICE {bar.close}....')
+			logging.debug(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend. Executing buy for {trade.shares} shares at PRICE {bar.close}....')
 
 			order_id = brokerage.buy(trade.ticker, shares)
 
