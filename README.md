@@ -27,7 +27,17 @@ Requires a number of libraries available on pip as well as a plotly-orca install
 
 ## Running the Bot
 
-I had a docker image, but it was too difficult to get the logging to work with crontab, so it has been sidelined for the time being.
+### Docker Image
+Run from the parent directory containing the project folder and the stock-libraries module. 
+You need to have run it manually once to setup the credentials files for your Google Drive in the piker-bot folder.
+Be sure to alter the data folder in bot_configuration.py to point to the mounted folder for the container prior to building.
+
+`docker build -f piker-bot/Dockerfile -t piker-bot .`
+
+`docker run --name piker_bot -d -v [PATH_TO_YOUR_DATA_FOLDER]:/var/lib/piker-bot piker-bot:latest`
+`docker run --name piker_bot -d -v d:/development/docker-data:/var/lib/piker-bot piker-bot:latest`
+
+### Running the Scripts Manually.
 
 You can execute main-pulse.py to fire the heartbeat pulse onxw or run main-scheduler.py to activate
 the scheduler and begin pulsing the heartbeat every minute for an eternity.

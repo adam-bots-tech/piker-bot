@@ -15,6 +15,8 @@ logging.getLogger('').addHandler(console)
 #Configure the heartbeat
 schedule.every(1).minutes.do(heartbeat.pulse)
 
+logging.critical('Bot is online.')
+
 #Pulse forever
 while True:
 	schedule.run_pending()

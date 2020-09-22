@@ -29,7 +29,7 @@ def pulse():
 			if s.get_market_open() == True:
 				logging.critical('Market has closed.')
 				s.set_market_open(False)
-			exit()
+			return
 
 		if s.get_market_open() == False:
 			s.set_market_open(True)
