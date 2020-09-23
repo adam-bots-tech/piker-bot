@@ -101,7 +101,7 @@ def handle_open_trades(brokerage, trades_db, s, stock_math):
 
 		if now.hour >= 15 and now.minute >= 30:
 			if trade.sell_at_end_day == 1:
-				logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour()}:{now.minute()}...')
+				logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour}:{now.minute}...')
 
 				order_id = brokerage.sell(trade.ticker, trade.shares)
 				if order_id is not None:
@@ -214,7 +214,7 @@ def open_new_trades(brokerage, trades_db, s, stock_math):
 
 			# Shares are dynamically calculated from a percentage of the total brokerage account
 			shares = math.trunc(trade_amount / bar.close)
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} over 40. Executing buy for {trade.shares} shares at PRICE {bar.close}....')
+			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} under 40. Executing buy for {trade.shares} shares at PRICE {bar.close}....')
 
 			order_id = brokerage.buy(trade.ticker, shares)
 
