@@ -11,6 +11,8 @@ console.setLevel(bot_configuration.LOGGING_LEVEL)
 formatter = logging.Formatter(bot_configuration.LOG_FORMAT)
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
+logging.getLogger("schedule").setLevel(logging.ERROR)
+logging.getLogger("stockstats").setLevel(logging.ERROR)
 
 #Configure the heartbeat
 schedule.every(1).minutes.do(heartbeat.pulse)

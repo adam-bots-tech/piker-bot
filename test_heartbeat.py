@@ -295,7 +295,7 @@ class TestBrokerage(brokerage.Brokerage):
 		del self.bars[ticker][0]
 		return bars_copy[0]
 
-	def sell(self, ticker, shares):
+	def sell(self, ticker, shares, extended=False):
 		sales = {
 			'TSLA': 'S1',
 			'AAPL': 'S2',
@@ -605,13 +605,13 @@ assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
-assert tsla.status == 'OPEN', f"TSLA status {tsla.status}"
+assert tsla.status == 'SELLING', f"TSLA status {tsla.status}"
 assert tsla.exit_date == 0.0, f"TSLA exit_date {tsla.exit_date}"
 assert tsla.entry_date != 0.0, f"TSLA entry_date {tsla.entry_date}"
 assert tsla.actual_exit_price == 0.0, f"TSLA actual_exit_price {tsla.actual_exit_price}"
 assert tsla.actual_entry_price == 499.1, f"TSLA actual_entry_price {tsla.actual_entry_price}"
 assert tsla.buy_order_id == 'B1', f"TSLA buy_order_id {tsla.buy_order_id}"
-assert tsla.sell_order_id == '', f"TSLA sell_order_id {tsla.sell_order_id}"
+assert tsla.sell_order_id == 'S1', f"TSLA sell_order_id {tsla.sell_order_id}"
 assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
@@ -712,7 +712,7 @@ assert tsla.entry_date != 0.0, f"TSLA entry_date {tsla.entry_date}"
 assert tsla.actual_exit_price == 0.0, f"TSLA actual_exit_price {tsla.actual_exit_price}"
 assert tsla.actual_entry_price == 499.1, f"TSLA actual_entry_price {tsla.actual_entry_price}"
 assert tsla.buy_order_id == 'B1', f"TSLA buy_order_id {tsla.buy_order_id}"
-assert tsla.sell_order_id == 'S1', f"TSLA sell_order_id {tsla.sell_order_id}"
+assert tsla.sell_order_id == 'R1', f"TSLA sell_order_id {tsla.sell_order_id}"
 assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
@@ -807,10 +807,10 @@ assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
-assert tsla.status == 'SELLING', f"TSLA status {tsla.status}"
-assert tsla.exit_date == 0.0, f"TSLA exit_date {tsla.exit_date}"
+assert tsla.status == 'CLOSED', f"TSLA status {tsla.status}"
+assert tsla.exit_date != 0.0, f"TSLA exit_date {tsla.exit_date}"
 assert tsla.entry_date != 0.0, f"TSLA entry_date {tsla.entry_date}"
-assert tsla.actual_exit_price == 0.0, f"TSLA actual_exit_price {tsla.actual_exit_price}"
+assert tsla.actual_exit_price == 523.1, f"TSLA actual_exit_price {tsla.actual_exit_price}"
 assert tsla.actual_entry_price == 499.1, f"TSLA actual_entry_price {tsla.actual_entry_price}"
 assert tsla.buy_order_id == 'B1', f"TSLA buy_order_id {tsla.buy_order_id}"
 assert tsla.sell_order_id == 'R1', f"TSLA sell_order_id {tsla.sell_order_id}"

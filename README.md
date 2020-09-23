@@ -10,15 +10,22 @@ Stock trading bot for executing swing trades over days to weeks.
 	- Price moves above SMA3, signaling the start of an uptrend.
 	- RSI is below 40.
 - If the price moves into the entry range and falls below the stop loss without shifting into an uptrend, the trade is cancelled.
-- Bot will sell the stock when two conditions are met
-	- Price moves above the exit price
-	- Prices move below SM3, signalling the start of a downtrend
-- OR bot will sell the stock 30 minutes before close if the trade is marked with the sell at end of day flag.
+- Bot will sell the stock when multiple conditions are met
+	- First, the price must move above the entry price.
+	- Then, the RSI must go above 70
+	- Or price moves below SM3, signalling the start of a downtrend 
+- OR bot will sell the stock 15 minutes before close if the trade is marked with the sell at end of day flag. 
+	- The bot will not enter into trades marked for sale at the end of the day within a hour of market closing.
 - Shares to purchase is calculated at the time of the sale, based on how many can be purchased using a percentage of the total brokerage account.
 - As the trade progreses, the bot automatically updates the sqlite3 database and the trade journal in Google Drive.
 
 ## Libraries
-Requires a number of libraries available on pip as well as a plotly-orca installation on your PATH.
+- numpy
+- alpaca_trade_api
+- ezsheets
+- schedule
+- beaker
+- stockstats
 
 ## Configuration and Installation
 - Clone the [Stock Library](https://github.com/adam-long-tech/stock-libraries) repo and follow the README instructions to install locally with pip.
