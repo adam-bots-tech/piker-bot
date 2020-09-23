@@ -7,11 +7,13 @@ import time
 import requests
 import trade_journal
 import bot_configuration
+import stock_math
 
 s = state_db.StateDB(bot_configuration.DATA_FOLDER + bot_configuration.DATABASE_NAME)
 b = brokerage.Brokerage(bot_configuration.ALPACA_PAPER_TRADING_ON, bot_configuration.ALPACA_KEY_ID, bot_configuration.ALPACA_SECRET_KEY, bot_configuration.DATA_FOLDER)
 j = trade_journal.TradeJournal(bot_configuration.TRADE_JOURNAL_TITLE)
 db = trades_db.DB(j, bot_configuration.DATA_FOLDER + bot_configuration.DATABASE_NAME)
+sm = stock_math.StockMath()
 
 def pulse():
 	try:
@@ -38,8 +40,8 @@ def pulse():
 		trades_manager.expire_trades(b, db)
 		trades_manager.handle_open_buy_orders(b, db, s)
 		trades_manager.handle_open_sell_orders(b, db, s)
-		trades_manager.handle_open_trades(b, db, s)
-		trades_manager.open_new_trades(b, db, s)
+		trades_manager.handle_open_trades(b, db, s, sm)
+		trades_manager.open_new_trades(b, db, s, sm)
 
 
 	except requests.exceptions.ConnectionError as conn:

@@ -5,13 +5,15 @@ Stock trading bot for executing swing trades over days to weeks.
 ## Features
 - Reads queued trades from a Google spreadsheet in my Google drive and adds them to local sqlite3 database
 - Heartbeat pulses every minute and checks the price on stocks being traded.
-- Bot purchases the stock when two conditions are met
-	- Price has entered into entry price range.
+- Bot purchases the stock when four conditions are met
+	- Price has entered into entry price range, at least, once and then, moved out of it.
 	- Price moves above SMA3, signaling the start of an uptrend.
+	- RSI is below 40.
 - If the price moves into the entry range and falls below the stop loss without shifting into an uptrend, the trade is cancelled.
 - Bot will sell the stock when two conditions are met
 	- Price moves above the exit price
 	- Prices move below SM3, signalling the start of a downtrend
+- OR bot will sell the stock 30 minutes before close if the trade is marked with the sell at end of day flag.
 - Shares to purchase is calculated at the time of the sale, based on how many can be purchased using a percentage of the total brokerage account.
 - As the trade progreses, the bot automatically updates the sqlite3 database and the trade journal in Google Drive.
 

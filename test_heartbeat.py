@@ -11,11 +11,19 @@ from order import Order
 import trade_journal
 import pandas as pd
 import cache
+import stock_math
+
+class TestStockMath(stock_math.StockMath):
+	def __init__(self):
+		self.rsi = [65,65,65,35,65,65,35,35,35,35,35,35,35,35,35,35,35,35,35]
+
+	def rsi_10_close(self, bars):
+		return self.rsi.pop()
 
 class TestTradeJournal(trade_journal.TradeJournal):
 
 	def __init__(self):
-		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', 'notes', 'expiration', 'metadata']]
+		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', 'notes', 'expiration', 'metadata', 'sell_end_of_day']]
 
 	def get_queued_trades(self):
 		return self.rows
@@ -23,8 +31,8 @@ class TestTradeJournal(trade_journal.TradeJournal):
 	def reset_queued_trades(self, headerRow):
 		self.rows=[headerRow]
 
-	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata):
-		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata])
+	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata,sell_end_of_day):
+		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata,sell_end_of_day])
 
 
 	def create_trade_record(self, trade, notes, metadata):
@@ -282,7 +290,7 @@ class TestBrokerage(brokerage.Brokerage):
 		}
 		return positions[ticker]
 
-	def get_last_three_bars(self, ticker):
+	def get_last_ten_bars(self, ticker):
 		bars_copy = copy.copy(self.bars[ticker])
 		del self.bars[ticker][0]
 		return bars_copy[0]
@@ -327,13 +335,13 @@ class TestBrokerage(brokerage.Brokerage):
 	def get_buying_power(self):
 		return 500000
 
-	def get_last_200_minutes_data_set(self, ticker, with_time=False):
+	def get_last_250_minutes_data_set(self, ticker, with_time=False):
 		if with_time:
 			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0, '9/3/2020 20:00']], index=range(0, 1), columns=['open','close','high','low','volume', 'time'])
 		else:
 			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0]], index=range(0, 1), columns=['open','close','high','low','volume'])
 
-	def get_last_200_15minutes_data_set(self, ticker, with_time=False):
+	def get_last_250_15minutes_data_set(self, ticker, with_time=False):
 		if with_time:
 			return pd.DataFrame(data=[[400.0, 500.0, 550.00, 340.0, 100.0, '9/3/2020 20:00']], index=range(0, 1), columns=['open','close','high','low','volume', 'time'])
 		else:
@@ -364,14 +372,15 @@ if os.path.exists(bot_configuration.DATA_FOLDER+bot_configuration.LOG_FILE):
 heartbeat.b = TestBrokerage()
 heartbeat.j = TestTradeJournal()
 heartbeat.db.journal = heartbeat.j
+heartbeat.sm = TestStockMath()
 
 #Create the trades
-heartbeat.j.create_queued_trade(2,'TSLA', 'long', 500.0, 520.0, 490.0, '', 1, '') #Replace the sell order and sell at a gain
-heartbeat.j.create_queued_trade(3,'AAPL', 'long', 400.0, 450.0, 384.0, '', 1, '') #Replace the buy order and sell at a loss
-heartbeat.j.create_queued_trade(4,'FB', 'long', 300.0, 330.0, 285.0, '', 1, '') #Expire the sale
-heartbeat.j.create_queued_trade(5,'AMZN', 'long', 2000.0, 2200.0, 1900.00, '', 1, '') #Expire the buy
-heartbeat.j.create_queued_trade(6,'GOOG', 'long', 350.0, 365.0, 343.0, '', 1, '') #Expire the sale
-heartbeat.j.create_queued_trade(7,'MSFT', 'long', 200.0, 240.0, 187.0, '', 1, '') #Expire the buy
+heartbeat.j.create_queued_trade(2,'TSLA', 'long', 500.0, 520.0, 490.0, '', 1, '', 0) #Replace the sell order and sell at a gain
+heartbeat.j.create_queued_trade(3,'AAPL', 'long', 400.0, 450.0, 384.0, '', 1, '', 0) #Replace the buy order and sell at a loss
+heartbeat.j.create_queued_trade(4,'FB', 'long', 300.0, 330.0, 285.0, '', 1, '', 0) #Expire the sale
+heartbeat.j.create_queued_trade(5,'AMZN', 'long', 2000.0, 2200.0, 1900.00, '', 1, '', 0) #Expire the buy
+heartbeat.j.create_queued_trade(6,'GOOG', 'long', 350.0, 365.0, 343.0, '', 1, '', 0) #Expire the sale
+heartbeat.j.create_queued_trade(7,'MSFT', 'long', 200.0, 240.0, 187.0, '', 1, '', 0) #Expire the buy
 
 
 # PULSE 1
@@ -596,13 +605,13 @@ assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
-assert tsla.status == 'SELLING', f"TSLA status {tsla.status}"
+assert tsla.status == 'OPEN', f"TSLA status {tsla.status}"
 assert tsla.exit_date == 0.0, f"TSLA exit_date {tsla.exit_date}"
 assert tsla.entry_date != 0.0, f"TSLA entry_date {tsla.entry_date}"
 assert tsla.actual_exit_price == 0.0, f"TSLA actual_exit_price {tsla.actual_exit_price}"
 assert tsla.actual_entry_price == 499.1, f"TSLA actual_entry_price {tsla.actual_entry_price}"
 assert tsla.buy_order_id == 'B1', f"TSLA buy_order_id {tsla.buy_order_id}"
-assert tsla.sell_order_id == 'S1', f"TSLA sell_order_id {tsla.sell_order_id}"
+assert tsla.sell_order_id == '', f"TSLA sell_order_id {tsla.sell_order_id}"
 assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
@@ -703,7 +712,7 @@ assert tsla.entry_date != 0.0, f"TSLA entry_date {tsla.entry_date}"
 assert tsla.actual_exit_price == 0.0, f"TSLA actual_exit_price {tsla.actual_exit_price}"
 assert tsla.actual_entry_price == 499.1, f"TSLA actual_entry_price {tsla.actual_entry_price}"
 assert tsla.buy_order_id == 'B1', f"TSLA buy_order_id {tsla.buy_order_id}"
-assert tsla.sell_order_id == 'R1', f"TSLA sell_order_id {tsla.sell_order_id}"
+assert tsla.sell_order_id == 'S1', f"TSLA sell_order_id {tsla.sell_order_id}"
 assert tsla.create_date is not None, f"TSLA create_date {tsla.create_date}"
 
 #AAPL 
@@ -798,10 +807,10 @@ assert tsla.shares == 50.0, f"TSLA shares {tsla.shares}"
 assert tsla.planned_entry_price == 500.0, f"TSLA planned_entry_price {tsla.planned_entry_price}"
 assert tsla.planned_exit_price == 520.0, f"TSLA planned_exit_price {tsla.planned_exit_price}"
 assert tsla.stop_loss == 490.0, f"TSLA stop_loss {tsla.stop_loss}"
-assert tsla.status == 'CLOSED', f"TSLA status {tsla.status}"
-assert tsla.exit_date != 0.0, f"TSLA exit_date {tsla.exit_date}"
+assert tsla.status == 'SELLING', f"TSLA status {tsla.status}"
+assert tsla.exit_date == 0.0, f"TSLA exit_date {tsla.exit_date}"
 assert tsla.entry_date != 0.0, f"TSLA entry_date {tsla.entry_date}"
-assert tsla.actual_exit_price == 523.1, f"TSLA actual_exit_price {tsla.actual_exit_price}"
+assert tsla.actual_exit_price == 0.0, f"TSLA actual_exit_price {tsla.actual_exit_price}"
 assert tsla.actual_entry_price == 499.1, f"TSLA actual_entry_price {tsla.actual_entry_price}"
 assert tsla.buy_order_id == 'B1', f"TSLA buy_order_id {tsla.buy_order_id}"
 assert tsla.sell_order_id == 'R1', f"TSLA sell_order_id {tsla.sell_order_id}"
