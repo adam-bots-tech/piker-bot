@@ -190,9 +190,6 @@ def open_new_trades(brokerage, trades_db, s, stock_math):
 
 		if buy_triggered and bar.close > trade.stop_loss and bar.close < sma3:
 			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
-		elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma3:
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but PRICE {bar.close} below STOP LOSS {trade.stop_loss}. Cancelling trade...')
-			trades_db.stop_loss(trade.create_date)
 		# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma3 and planned_entry_price
 		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma3 and bar.close > trade.planned_entry_price:
 

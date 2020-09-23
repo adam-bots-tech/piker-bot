@@ -7,9 +7,9 @@ Stock trading bot for executing swing trades over days to weeks.
 - Heartbeat pulses every minute and checks the price on stocks being traded.
 - Bot purchases the stock when four conditions are met
 	- Price has entered into entry price range, at least, once and then, moved out of it.
+	- Price is above the stop loss
 	- Price moves above SMA3, signaling the start of an uptrend.
 	- RSI is below 40.
-- If the price moves into the entry range and falls below the stop loss without shifting into an uptrend, the trade is cancelled.
 - Bot will sell the stock when multiple conditions are met
 	- First, the price must move above the entry price.
 	- Then, the RSI must go above 70
