@@ -45,7 +45,7 @@ def pulse():
 
 
 	except requests.exceptions.ConnectionError as conn:
-		logging.critical(f'Bad connection. {str(conn)}')
+		logging.error(f'Bad connection. {str(conn)}')
 
 	except Exception as err:
 		logging.error('Exception occured during heartbeat:', exc_info=err)
