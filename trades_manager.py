@@ -99,7 +99,7 @@ def handle_open_trades(brokerage, trades_db, s, stock_math):
 
 		now = datetime.utcnow()
 
-		# Sell within last 15 minutes if marked for sale at end of the day
+		# Sell within last 30 minutes if marked for sale at end of the day
 		if now.hour >= 19 and now.minute >= 30:
 			if trade.sell_at_end_day == 1:
 				logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour}:{now.minute}...')
