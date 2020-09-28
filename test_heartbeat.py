@@ -13,7 +13,11 @@ import pandas as pd
 import cache
 import stock_math
 
-# Too much math, so just mocking out what I want the results to be, so I can control test outcomes
+#Every good bot or system or applications needs a good scripted unit test to verify it behaves correctly under certain
+#conditions
+
+#Trying to determine test outcomes with the additional math for RSI and SMA is too time consuming. Therefore, I am creating
+# a mock which forces certain numbers to force the bot to make the correct decisions when I want it.
 class TestStockMath(stock_math.StockMath):
 	def __init__(self):
 		self.rsi = [65,65,65,35,65,65,35,35,35,35,35,35,35,35,35,35,35,35,35]
@@ -27,6 +31,7 @@ class TestStockMath(stock_math.StockMath):
 	def sma_5_close(self, bars):
 		return bars[0].close - 1
 
+#Mock of the trade journal where all the journal entries are stored in memory.
 class TestTradeJournal(trade_journal.TradeJournal):
 
 	def __init__(self):
@@ -51,6 +56,7 @@ class TestTradeJournal(trade_journal.TradeJournal):
 	def bootstrap(self):
 		return None
 
+#Mock brokerage where the data comes from constants and fixed lists.
 class TestBrokerage(brokerage.Brokerage):
 	def __init__(self):
 		self.data_folder = bot_configuration.DATA_FOLDER
@@ -323,8 +329,6 @@ class TestBrokerage(brokerage.Brokerage):
 #Overwrite the configuration
 bot_configuration.DATABASE_NAME='test-piker-bot.db'
 bot_configuration.LOG_FILE='test-piker-bot.log'
-bot_configuration.TRAILING_STOP_LOSS=0.02
-bot_configuration.MAX_TRADES_OPEN=6
 bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE=0.05
 bot_configuration.MIN_AMOUNT_PER_TRADE=100.0
 bot_configuration.TRADE_JOURNAL_TITLE='Test Stock Trading Journal'

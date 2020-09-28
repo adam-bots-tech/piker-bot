@@ -6,12 +6,14 @@ import math
 import technical_analysis as ta
 import json
 
+# Pre-workflow: Check to see if the user has added new trades to the trade journal
 def pull_queued_trades(trades_db, journal):
 	journal.bootstrap()
 	rows = journal.get_queued_trades()
 	header_row = rows[0]
 
 	for row in rows:
+		#We don't want to create a trade from the header row or empty rows at the end of the rows list.
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
@@ -21,18 +23,20 @@ def pull_queued_trades(trades_db, journal):
 
 	journal.reset_queued_trades(header_row)
 
+# Step one: Expire any expired queued trades in the database, so we don't run them in later steps.
 def expire_trades(brokerage, trades_db):
 	trades=trades_db.get_queued_trades()
 
-	# Get all the queued trades to look for expired ones
 	for trade in trades:
+		days = 1 if trade.expiration_date < 1 else trade.expiration_date
+
 		expiration_date = datetime.fromtimestamp(trade.create_date) + timedelta(days=trade.expiration_date)
 
 		if datetime.timestamp(datetime.now()) >= datetime.timestamp(expiration_date):
 			logging.critical(f'{trade.ticker}: Queued Trade {trade.create_date} expired.')
 			trades_db.expire(trade.create_date)
 
-
+# Step two: Update the database and trade journal for trades with open buy orders
 def handle_open_buy_orders(brokerage, trades_db, s):
 	trades = trades_db.get_trades_being_bought()
 
@@ -61,7 +65,7 @@ def handle_open_buy_orders(brokerage, trades_db, s):
 			trades_db.replace_buy(trade.create_date, order.replacement_order_id)
 			s.remove_buy_price_marker(trade.ticker, trade.id)
 
-
+# Step three: Update the database and trade journal for trades with open sell orders
 def handle_open_sell_orders(brokerage, trades_db, s):
 	trades = trades_db.get_trades_being_sold()
 
@@ -90,11 +94,10 @@ def handle_open_sell_orders(brokerage, trades_db, s):
 			trades_db.replace_sale(trade.create_date, order.replacement_order_id)
 			s.remove_sale_price_marker(trade.ticker, trade.id)
 
-#Step 3
+# Step four: Check the status on positions we already have and sell if the correct conditions have been met.
 def handle_open_trades(brokerage, trades_db, s, stock_math):
 	trades = trades_db.get_open_long_trades()
 
-	# Get all open trades in the db, oldest first.
 	for trade in trades:
 
 		now = datetime.utcnow()
@@ -103,13 +106,7 @@ def handle_open_trades(brokerage, trades_db, s, stock_math):
 		if now.hour >= 19 and now.minute >= 30:
 			if trade.sell_at_end_day == 1:
 				logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour}:{now.minute}...')
-
-				order_id = brokerage.sell(trade.ticker, trade.shares)
-				if order_id is not None:
-					trades_db.sell(trade.create_date, order_id)
-					logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
-				else:
-					logging.error('Brokerage API failed to complete sell order.')
+				sell(brokerage, trades_db, trade)
 				continue
 
 		bars = brokerage.get_last_ten_bars(trade.ticker)
@@ -127,12 +124,8 @@ def handle_open_trades(brokerage, trades_db, s, stock_math):
 		# If the sma3 is less than or equal to the stop loss, we sell.
 		if sma3 <= trade.stop_loss:
 			logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by SMA3 {sma3}. Selling {trade.shares} shares...')
-			order_id = brokerage.sell(trade.ticker, trade.shares)
-			if order_id is not None:
-				trades_db.sell(trade.create_date, order_id)
-				s.remove_sale_price_marker(trade.ticker, trade.id)
-			else:
-				logging.error('Brokerage API failed to complete sell order.')
+			sell(brokerage, trades_db, trade)
+			continue
 
 		#Once the price passes above within 1% of the exit price, we set a marker to sell, in case the price immediately drops below into a downward trend
 		if bar.close >= trade.planned_exit_price - (trade.planned_exit_price * 0.01):
@@ -140,41 +133,38 @@ def handle_open_trades(brokerage, trades_db, s, stock_math):
 
 		sale_triggered = s.get_sale_price_marker(trade.ticker, trade.id)
 
-		# We only sell if the price is less than the sma3 and therefore, in a downward trend. 
+		# We only sell if the price is less than the sma3 and therefore, in a downward trend OR has an RSI over 70, showing it's overbought. 
 		if sale_triggered:
 
 			if sma3 < bar.close or rsi10 > 70.0:
+
 				if rsi10 > 70.0:
 					logging.critical(f'{trade.ticker}: RSI {rsi10} is over 70. Stock is overbought. Selling {trade.shares} shares at {bar.close}...')
 				else:
 					logging.critical(f'{trade.ticker}: PRICE {bar.close} less than SMA3 {sma3} with RSI {rsi10}. Trend has shifted. Selling {trade.shares} shares...')
-				order_id = brokerage.sell(trade.ticker, trade.shares)
-				if order_id is not None:
-					trades_db.sell(trade.create_date, order_id)
-					logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
-				else:
-					logging.error('Brokerage API failed to complete sell order.')
+
+				sell(brokerage, trades_db, trade)
 			else:
 				logging.critical(f'{trade.ticker} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend... (PRICE {bar.close}) (RSI {rsi10})')
 
-#Step 4
+# Step five: If we are able to open new trades for the day, check the status on tickers for trades in the queue and purchase shares if the correct conditions have been met.
 def open_new_trades(brokerage, trades_db, s, stock_math):
 	queued_trades = trades_db.get_queued_long_trades()
 
-	# Createa closure around the buy logic so we can get a boolean
-	def buy_closure(trade, trades_db):
+	for trade in queued_trades:
 		now = datetime.utcnow()
 
+		# Prohibit the purchase of shares in the last hour if a trade is marked for sale at the end of the day
 		if now.hour >= 19:
 			if trade.sell_at_end_day == 1:
 				logging.critical(f'{trade.ticker} cannot be purchased. Trade is flagged for sale at end of day and it is now past 3:00pm.')
-				return False
+				continue
 
 		bars = brokerage.get_last_ten_bars(trade.ticker)
 
 		if (bars == None):
 			logging.error('Brokerage API failed to return last three chart bars.')
-			return False
+			continue
 
 		sma5 = stock_math.sma_5_close(bars)
 		rsi10 = stock_math.rsi_10_close(bars)
@@ -188,51 +178,63 @@ def open_new_trades(brokerage, trades_db, s, stock_math):
 
 		buy_triggered = s.get_buy_price_marker(trade.ticker, trade.id)
 
+		# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma5 and planned_entry_price with an RSI of less than 45
 		if buy_triggered and bar.close > trade.stop_loss and bar.close < sma5:
 			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
-		# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma5 and planned_entry_price
-		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price:
+		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close <= trade.planned_entry_price:
+			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend, but PRICE {bar.close} below ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
+		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 >= 45.0:
+			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in upward trend, but RSI above 45... (PRICE {bar.close}) (RSI {rsi10})')
+		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 < 45.0:
+			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} under 45. Executing purchase at PRICE {bar.close}....')
+			buy(brokerage, trades_db, s, bot_configuration, trade, bar)
 
-			if rsi10 >= 40.0:
-				logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in upward trend, but RSI above 40... (PRICE {bar.close}) (RSI {rsi10})')
-				return False
 
-			buying_power = brokerage.get_buying_power()
+# We refactor the buy and sell logic into smaller methods for code reuse and to make the larger functions easier to read.
+# We make a clear distinction between the logic in deciding on a sale or purchase and the logic in executing the sale and purchase
 
-			if (buying_power == None):
-				logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
-				return False
-
-			if (buying_power == False):
-				logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
-				return False
-
-			if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
-				logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
-				trades_db.out_of_money(trade.create_date)
-				return False
-
-			trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
-
-			if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
-				trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
-
-			# Shares are dynamically calculated from a percentage of the total brokerage account
-			shares = math.trunc(trade_amount / bar.close)
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} under 40. Executing buy for {shares} shares at PRICE {bar.close}....')
-
-			order_id = brokerage.buy(trade.ticker, shares)
-
-			if order_id is not None:
-				logging.critical(f'{trade.ticker}: {shares} shares bought at market price. (Order ID: {order_id})')
-				trades_db.buy(trade.create_date, shares, order_id)
-				s.remove_buy_price_marker(trade.ticker, trade.id)
-				return True
-			else:
-				logging.error('Brokerage API failed to complete buy order.')
-		
+def sell(brokerage, trades_db, trade):
+	order_id = brokerage.sell(trade.ticker, trade.shares)
+	if order_id is not None:
+		trades_db.sell(trade.create_date, order_id)
+		logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
+		return True
+	else:
+		logging.error('Brokerage API failed to complete sell order.')
 		return False
 
-	# Get all queued trades in database
-	for trade in queued_trades:
-		buy_closure(trade, trades_db)
+def buy(brokerage, trades_db, state_db, bot_configuration, trade, bar):
+	buying_power = brokerage.get_buying_power()
+
+	if (buying_power == None):
+		logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
+		return False
+
+	if (buying_power == False):
+		logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
+		return False
+
+	if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
+		logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+		trades_db.out_of_money(trade.create_date)
+		return False
+
+	trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
+
+	if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
+		trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+
+	# Shares are dynamically calculated from a percentage of the total brokerage account
+	shares = math.trunc(trade_amount / bar.close)
+
+	order_id = brokerage.buy(trade.ticker, shares)
+
+	if order_id is not None:
+		logging.critical(f'{trade.ticker}: {shares} shares bought at market price. (Order ID: {order_id})')
+		trades_db.buy(trade.create_date, shares, order_id)
+		state_db.remove_buy_price_marker(trade.ticker, trade.id)
+		return True
+	else:
+		logging.error('Brokerage API failed to complete buy order.')
+
+	return False
