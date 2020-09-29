@@ -34,7 +34,8 @@ def expire_trades(trades_db):
 
 		if datetime.timestamp(datetime.now()) >= datetime.timestamp(expiration_date):
 			logging.critical(f'{trade.ticker}: Queued Trade {trade.create_date} expired.')
-			trades_db.expire(trade)
+			trade = trades_db.expire(trade)
+			journal.update_trade_record(trade)
 
 # Step two: Update the database and trade journal for trades with open buy orders
 def handle_open_buy_orders(brokerage, journal, trades_db):
@@ -104,7 +105,7 @@ def handle_open_trades(brokerage, stock_math, journal, trades_db):
 
 		# Sell within last 30 minutes if marked for sale at end of the day
 		if now.hour >= 19 and now.minute >= 30:
-			if trade.sell_at_end_day == 1:
+			if trade.sell_end_of_day == 1:
 				logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour}:{now.minute}...')
 				sell(brokerage, trades_db, trade, journal)
 				continue
@@ -156,7 +157,7 @@ def open_new_trades(brokerage, stock_math, journal, trades_db):
 
 		# Prohibit the purchase of shares in the last hour if a trade is marked for sale at the end of the day
 		if now.hour >= 19:
-			if trade.sell_at_end_day == 1:
+			if trade.sell_end_of_day == 1:
 				logging.critical(f'{trade.ticker} cannot be purchased. Trade is flagged for sale at end of day and it is now past 3:00pm.')
 				continue
 

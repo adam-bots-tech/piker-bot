@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 import bot_configuration
 import json
 
+#Defining the base for our models for the ORM layer
 Base = declarative_base()
 
 class Trade(Base):
@@ -27,7 +28,7 @@ class Trade(Base):
 	buy_order_id=Column(Text)
 	type=Column(Text)
 	expiration_date=Column(Integer)
-	sell_at_end_day=Column(Integer)
+	sell_end_of_day=Column(Integer)
 
 class Property(Base):
 	__tablename__ = 'state'
@@ -49,7 +50,7 @@ def generate_default_trade(ticker, type, entry, exit, stop_loss, expiration_date
 	trade.planned_exit_price=exit
 	trade.status="QUEUED"
 	trade.expiration_date=expiration_date
-	trade.sell_at_end_day=sell_at_end_day
+	trade.sell_end_of_day=sell_at_end_day
 	trade.shares = 0.0
 	trade.actual_entry_price=0.0
 	trade.actual_exit_price=0.0
@@ -191,7 +192,7 @@ cache = {
 def get_market_open():
 	if cache['market_open'] is None:
 		cache['market_open'] = Session.query(Property).filter(Property.key == 'market_open').first()
-	return cache['market_open'] is not None and cache['market_open'] == 'True'
+	return cache['market_open'] is not None and cache['market_open'].value == '1'
 
 def get_last_prices():
 	if cache['prices'] is None:
