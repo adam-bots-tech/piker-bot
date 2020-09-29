@@ -39,6 +39,7 @@ This is the development repo of the bot and the stability of the code base can b
 - schedule
 - beaker
 - stockstats
+- sqlalchemy
 
 ## Configuration and Installation (that may or not work depending on how much coffee I've had)
 - Clone the Stock Library repo and follow the README instructions to install locally with pip.
@@ -52,6 +53,7 @@ This is the development repo of the bot and the stability of the code base can b
 	- `pip install schedule`
 	- `pip install beaker`
 	- `pip install stockstats`
+	- `pip install sqlalchemy`
 - Run the bot once by running the main-pulse.py script.
 - The Google Drive API will provide instructions on how to activate the API on a first run.
 	- The process will produce three files:

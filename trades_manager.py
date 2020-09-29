@@ -109,7 +109,7 @@ def handle_open_trades(brokerage, stock_math, journal, trades_db):
 				sell(brokerage, trades_db, trade, journal)
 				continue
 
-		bars = brokerage.get_last_ten_bars(trade.ticker)
+		bars = brokerage.get_last_bars(trade.ticker, 10, 'minute')
 
 		if (bars == None):
 			logging.error('Brokerage API failed to return last three chart bars.')
@@ -160,7 +160,7 @@ def open_new_trades(brokerage, stock_math, journal, trades_db):
 				logging.critical(f'{trade.ticker} cannot be purchased. Trade is flagged for sale at end of day and it is now past 3:00pm.')
 				continue
 
-		bars = brokerage.get_last_ten_bars(trade.ticker)
+		bars = brokerage.get_last_bars(trade.ticker, 10, 'minute')
 
 		if (bars == None):
 			logging.error('Brokerage API failed to return last three chart bars.')

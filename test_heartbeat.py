@@ -83,13 +83,13 @@ class TestBrokerage(brokerage.Brokerage):
 					Bar({"t": 1,"o": 0.0,"h": 0.0,"l": 0.0,"c": 500.1,"v": 0})
 				],
 				[
-					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.1,"v": 0}),
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0}),
 					Bar({"t": 2,"o": 0.0,"h": 0.0,"l": 0.0,"c": 521.0,"v": 0})
 				],
 				[
-					Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
-					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 523.1,"v": 0}),
+					Bar({"t": 5,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.1,"v": 0}),
+					Bar({"t": 4,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.1,"v": 0}),
 					Bar({"t": 3,"o": 0.0,"h": 0.0,"l": 0.0,"c": 524.0,"v": 0})
 				]
 			],
@@ -267,7 +267,10 @@ class TestBrokerage(brokerage.Brokerage):
 		}
 		return positions[ticker]
 
-	def get_last_ten_bars(self, ticker):
+	def get_last_bars(self, ticker, length, time_segment):
+		if length == 250:
+			return [Bar({"t": 0,"o": 400.0,"h": 550.0,"l": 340.0,"c": 500.0,"v": 100})]
+
 		bars_copy = copy.copy(self.bars[ticker])
 		del self.bars[ticker][0]
 		return bars_copy[0]
