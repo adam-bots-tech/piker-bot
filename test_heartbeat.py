@@ -2,7 +2,6 @@ import logging
 import bot_configuration
 logging.basicConfig(format=bot_configuration.LOG_FORMAT, level=logging.DEBUG)
 import brokerage
-import trades_db
 import os
 import copy
 from bar import Bar
@@ -334,9 +333,6 @@ bot_configuration.MIN_AMOUNT_PER_TRADE=100.0
 bot_configuration.TRADE_JOURNAL_TITLE='Test Stock Trading Journal'
 bot_configuration.DATA_FOLDER ='D:\\development\\data\\'
 
-#Loading heartbeat here, so everything loads after we change the config
-import heartbeat
-
 #Remove the old log and database file
 if os.path.exists(bot_configuration.DATA_FOLDER+bot_configuration.DATABASE_NAME):
 	os.remove(bot_configuration.DATA_FOLDER+bot_configuration.DATABASE_NAME)
@@ -344,10 +340,12 @@ if os.path.exists(bot_configuration.DATA_FOLDER+bot_configuration.DATABASE_NAME)
 if os.path.exists(bot_configuration.DATA_FOLDER+bot_configuration.LOG_FILE):
 	os.remove(bot_configuration.DATA_FOLDER+bot_configuration.LOG_FILE)
 
+#Loading heartbeat here, so everything loads after we change the config and delete the database
+import heartbeat
+
 #Overwrite the heartbeat's brokerage with the test brokerage
 heartbeat.b = TestBrokerage()
 heartbeat.j = TestTradeJournal()
-heartbeat.db.journal = heartbeat.j
 heartbeat.sm = TestStockMath()
 
 #Create the trades
@@ -363,12 +361,14 @@ heartbeat.j.create_queued_trade(7,'MSFT', 'long', 200.0, 240.0, 187.0, '', 1, ''
 logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
-tsla = heartbeat.db.get_by_ticker('TSLA')
-aapl = heartbeat.db.get_by_ticker("AAPL")
-fb = heartbeat.db.get_by_ticker("FB")
-amzn = heartbeat.db.get_by_ticker('AMZN')
-goog = heartbeat.db.get_by_ticker('GOOG')
-msft = heartbeat.db.get_by_ticker('MSFT')
+
+tsla = heartbeat.trades_db.get_by_ticker('TSLA')
+aapl = heartbeat.trades_db.get_by_ticker("AAPL")
+fb = heartbeat.trades_db.get_by_ticker("FB")
+amzn = heartbeat.trades_db.get_by_ticker('AMZN')
+goog = heartbeat.trades_db.get_by_ticker('GOOG')
+msft = heartbeat.trades_db.get_by_ticker('MSFT')
+
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
@@ -464,12 +464,12 @@ assert msft.create_date is not None, f"MSFT create_date {msft.create_date}"
 logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
-tsla = heartbeat.db.get(tsla.create_date)
-aapl = heartbeat.db.get(aapl.create_date)
-fb = heartbeat.db.get(fb.create_date)
-amzn = heartbeat.db.get(amzn.create_date)
-goog = heartbeat.db.get(goog.create_date)
-msft = heartbeat.db.get(msft.create_date)
+tsla = heartbeat.trades_db.get(tsla.create_date)
+aapl = heartbeat.trades_db.get(aapl.create_date)
+fb = heartbeat.trades_db.get(fb.create_date)
+amzn = heartbeat.trades_db.get(amzn.create_date)
+goog = heartbeat.trades_db.get(goog.create_date)
+msft = heartbeat.trades_db.get(msft.create_date)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
@@ -568,12 +568,12 @@ heartbeat.pulse()
 # Workflow isn't causing AAPL bar to get popped off. Quick hack to make the test work. Overlooked this issue in design
 del heartbeat.b.bars['AAPL'][0]
 
-tsla = heartbeat.db.get(tsla.create_date)
-aapl = heartbeat.db.get(aapl.create_date)
-fb = heartbeat.db.get(fb.create_date)
-amzn = heartbeat.db.get(amzn.create_date)
-goog = heartbeat.db.get(goog.create_date)
-msft = heartbeat.db.get(msft.create_date)
+tsla = heartbeat.trades_db.get(tsla.create_date)
+aapl = heartbeat.trades_db.get(aapl.create_date)
+fb = heartbeat.trades_db.get(fb.create_date)
+amzn = heartbeat.trades_db.get(amzn.create_date)
+goog = heartbeat.trades_db.get(goog.create_date)
+msft = heartbeat.trades_db.get(msft.create_date)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
@@ -669,12 +669,12 @@ assert msft.create_date is not None, f"MSFT create_date {msft.create_date}"
 logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
-tsla = heartbeat.db.get(tsla.create_date)
-aapl = heartbeat.db.get(aapl.create_date)
-fb = heartbeat.db.get(fb.create_date)
-amzn = heartbeat.db.get(amzn.create_date)
-goog = heartbeat.db.get(goog.create_date)
-msft = heartbeat.db.get(msft.create_date)
+tsla = heartbeat.trades_db.get(tsla.create_date)
+aapl = heartbeat.trades_db.get(aapl.create_date)
+fb = heartbeat.trades_db.get(fb.create_date)
+amzn = heartbeat.trades_db.get(amzn.create_date)
+goog = heartbeat.trades_db.get(goog.create_date)
+msft = heartbeat.trades_db.get(msft.create_date)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
@@ -770,12 +770,12 @@ assert msft.create_date is not None, f"MSFT create_date {msft.create_date}"
 logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
-tsla = heartbeat.db.get(tsla.create_date)
-aapl = heartbeat.db.get(aapl.create_date)
-fb = heartbeat.db.get(fb.create_date)
-amzn = heartbeat.db.get(amzn.create_date)
-goog = heartbeat.db.get(goog.create_date)
-msft = heartbeat.db.get(msft.create_date)
+tsla = heartbeat.trades_db.get(tsla.create_date)
+aapl = heartbeat.trades_db.get(aapl.create_date)
+fb = heartbeat.trades_db.get(fb.create_date)
+amzn = heartbeat.trades_db.get(amzn.create_date)
+goog = heartbeat.trades_db.get(goog.create_date)
+msft = heartbeat.trades_db.get(msft.create_date)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"
@@ -871,12 +871,12 @@ assert msft.create_date is not None, f"MSFT create_date {msft.create_date}"
 logging.info('Heartbeat pulse incoming...')
 heartbeat.pulse()
 
-tsla = heartbeat.db.get(tsla.create_date)
-aapl = heartbeat.db.get(aapl.create_date)
-fb = heartbeat.db.get(fb.create_date)
-amzn = heartbeat.db.get(amzn.create_date)
-goog = heartbeat.db.get(goog.create_date)
-msft = heartbeat.db.get(msft.create_date)
+tsla = heartbeat.trades_db.get(tsla.create_date)
+aapl = heartbeat.trades_db.get(aapl.create_date)
+fb = heartbeat.trades_db.get(fb.create_date)
+amzn = heartbeat.trades_db.get(amzn.create_date)
+goog = heartbeat.trades_db.get(goog.create_date)
+msft = heartbeat.trades_db.get(msft.create_date)
 
 #TSLA 
 assert tsla.ticker == 'TSLA', f"TSLA ticker {tsla.ticker}"

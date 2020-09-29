@@ -6,6 +6,7 @@ RUN pip3 install ezsheets
 RUN pip3 install schedule
 RUN pip3 install beaker
 RUN pip3 install stockstats
+RUN pip3 install sqlalchemy
 
 ADD piker-bot/credentials-sheets.json /root/credentials-sheets.json
 ADD piker-bot/token-drive.pickle /root/token-drive.pickle
