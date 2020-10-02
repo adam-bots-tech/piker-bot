@@ -8,7 +8,7 @@ import bot_configuration
 import stock_math
 import trades_db
 
-# We trap references to objects as part of a closure for the main-schedule.py, so we can persist state in between pulses. Has no effect on the main-pulse.py script.
+# We bind references to objects in the global namespace for the main-schedule.py, so we can persist state in between pulses. Has no effect on the main-pulse.py script.
 # Need to be careful what you store in these objects as unbounded lists can cause memory leaks.
 # Also important to not attempt to connect to any of the underlying data sources in a constructor using this approach. We do it using bootstrap methods when the pulse actually fires.
 b = brokerage.Brokerage(bot_configuration.ALPACA_PAPER_TRADING_ON, bot_configuration.ALPACA_KEY_ID, bot_configuration.ALPACA_SECRET_KEY, bot_configuration.DATA_FOLDER)
@@ -43,7 +43,7 @@ def pulse():
 			logging.critical('Market has opened')
 
 		# Step one: Expire any expired queued trades in the database, so we don't run them in later steps.
-		trades_manager.expire_trades(trades_db)
+		trades_manager.expire_trades(trades_db, j)
 		# Step two: Update the database and trade journal for trades with open buy orders
 		trades_manager.handle_open_buy_orders(b, j, trades_db)
 		# Step three: Update the database and trade journal for trades with open sell orders

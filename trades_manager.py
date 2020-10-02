@@ -24,7 +24,7 @@ def pull_queued_trades(journal, trades_db):
 	journal.reset_queued_trades(header_row)
 
 # Step one: Expire any expired queued trades in the database, so we don't run them in later steps.
-def expire_trades(trades_db):
+def expire_trades(trades_db, journal):
 	trades=trades_db.get_queued_trades()
 
 	for trade in trades:
