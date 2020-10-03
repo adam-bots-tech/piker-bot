@@ -17,11 +17,13 @@ def pull_queued_trades(journal, trades_db):
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
+		amount = 0.0 if row[9] == '' else row[9]
+
 		if row[1] == 'long':
-			trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6], row[8])
+			trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6], row[8], amount)
 		else:
-			trade = trades_db.create_new_short_trade(row[0], row[2], row[3], row[4], row[6], row[8])
-			
+			trade = trades_db.create_new_short_trade(row[0], row[2], row[3], row[4], row[6], row[8], amount)
+
 		journal.create_trade_record(trade, row[5], row[7])
 		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
 
@@ -131,10 +133,10 @@ def open_new_trades(brokerage, stock_math, journal, trades_db):
 
 		if trade.type == 'long':
 			if is_buyable(trade, bars, stock_math, trades_db):
-				buy(brokerage, trades_db, bot_configuration, trade, journal, price=bars[0].close)
+				buy(brokerage, trades_db, bot_configuration, trade, journal, price=bars[0].close, amount=trade.amount)
 		else:
 			if is_short_sellable(trade, bars, stock_math, trades_db):
-				sell(brokerage, trades_db, trade, journal, price=bars[0].close)
+				sell(brokerage, trades_db, trade, journal, price=bars[0].close, amount=trade.amount)
 
 
 # We refactor the buy and sell logic into smaller methods for code reuse and to make the larger functions easier to read.
@@ -293,30 +295,33 @@ def is_short_buyable(trade, bars, stock_math, trades_db):
 			return False
 	return False
 
-def sell(brokerage, trades_db, trade, journal, price=None):
+def sell(brokerage, trades_db, trade, journal, price=None, amount=None):
 	if price == None:
 		shares = trade.shares
 	else:
-		buying_power = brokerage.get_buying_power()
+		if amount == None or amount == '' or amount == 0.0:
+			buying_power = brokerage.get_buying_power()
 
-		if (buying_power == None):
-			logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
-			return False
+			if (buying_power == None):
+				logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
+				return False
 
-		if (buying_power == False):
-			logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
-			return False
+			if (buying_power == False):
+				logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
+				return False
 
-		if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
-			logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
-			trade = trades_db.out_of_money(trade)
-			journal.update_trade_record(trade)
-			return False
+			if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
+				logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+				trade = trades_db.out_of_money(trade)
+				journal.update_trade_record(trade)
+				return False
 
-		trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
+			trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
 
-		if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
-			trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+			if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
+				trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+		else:
+			trade_amount=amount
 
 		# Shares are dynamically calculated from a percentage of the total brokerage account
 		shares = math.trunc(trade_amount / price)
@@ -331,31 +336,34 @@ def sell(brokerage, trades_db, trade, journal, price=None):
 		logging.error('Brokerage API failed to complete sell order.')
 		return False
 
-def buy(brokerage, trades_db, bot_configuration, trade, journal, price=None):
+def buy(brokerage, trades_db, bot_configuration, trade, journal, price=None, amount=None):
 
 	if price == None:
 		shares = trade.shares
 	else:
-		buying_power = brokerage.get_buying_power()
+		if amount == None or amount == '' or amount == 0.0:
+			buying_power = brokerage.get_buying_power()
 
-		if (buying_power == None):
-			logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
-			return False
+			if (buying_power == None):
+				logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
+				return False
 
-		if (buying_power == False):
-			logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
-			return False
+			if (buying_power == False):
+				logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
+				return False
 
-		if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
-			logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
-			trade = trades_db.out_of_money(trade)
-			journal.update_trade_record(trade)
-			return False
+			if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
+				logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+				trade = trades_db.out_of_money(trade)
+				journal.update_trade_record(trade)
+				return False
 
-		trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
+			trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
 
-		if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
-			trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+			if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
+				trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+		else:
+			trade_amount=amount
 
 		# Shares are dynamically calculated from a percentage of the total brokerage account
 		shares = math.trunc(trade_amount / price)

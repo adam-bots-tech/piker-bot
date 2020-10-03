@@ -29,6 +29,7 @@ class Trade(Base):
 	type=Column(Text)
 	expiration_date=Column(Integer)
 	sell_end_of_day=Column(Integer)
+	amount = Column(Float)
 
 class Property(Base):
 	__tablename__ = 'state'
@@ -41,7 +42,7 @@ Base.metadata.bind = Engine
 DBSession = sessionmaker(bind=Engine)
 Session = DBSession()
 
-def generate_default_trade(ticker, type, entry, exit, stop_loss, expiration_date, sell_at_end_day):
+def generate_default_trade(ticker, type, entry, exit, stop_loss, expiration_date, sell_at_end_day, amount):
 	trade = Trade()
 	trade.create_date = datetime.timestamp(datetime.now())
 	trade.ticker = ticker
@@ -59,6 +60,7 @@ def generate_default_trade(ticker, type, entry, exit, stop_loss, expiration_date
 	trade.entry_date=0.0
 	trade.buy_order_id=''
 	trade.sell_order_id=''
+	trade.amount=amount
 	return trade
 
 def get(create_date):
@@ -72,11 +74,11 @@ def add(trade):
 	Session.commit()
 	return get(trade.create_date)
 
-def create_new_long_trade(ticker, entry, exit, stop_loss, expiration_date, sell_at_end_day):
-	return add(generate_default_trade(ticker, 'long', entry, exit, stop_loss, expiration_date, sell_at_end_day))
+def create_new_long_trade(ticker, entry, exit, stop_loss, expiration_date, sell_at_end_day, amount=0.0):
+	return add(generate_default_trade(ticker, 'long', entry, exit, stop_loss, expiration_date, sell_at_end_day, amount))
 
-def create_new_short_trade(ticker, entry, exit, stop_loss, expiration_date, sell_at_end_day):
-	return add(generate_default_trade(ticker, 'short', entry, exit, stop_loss, expiration_date, sell_at_end_day))
+def create_new_short_trade(ticker, entry, exit, stop_loss, expiration_date, sell_at_end_day, amount=0.0):
+	return add(generate_default_trade(ticker, 'short', entry, exit, stop_loss, expiration_date, sell_at_end_day, amount))
 
 def open(trade, shares, price):
 	trade.shares = shares

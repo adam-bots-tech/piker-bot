@@ -34,7 +34,7 @@ class TestStockMath(stock_math.StockMath):
 class TestTradeJournal(trade_journal.TradeJournal):
 
 	def __init__(self):
-		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', 'notes', 'expiration', 'metadata', 'sell_end_of_day']]
+		self.rows = [['ticker', 'type', 'entry', 'exit', 'stop_loss', 'notes', 'expiration', 'metadata', 'sell_end_of_day', 'amount']]
 
 	def get_queued_trades(self):
 		return self.rows
@@ -42,8 +42,8 @@ class TestTradeJournal(trade_journal.TradeJournal):
 	def reset_queued_trades(self, headerRow):
 		self.rows=[headerRow]
 
-	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata,sell_end_of_day):
-		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata,sell_end_of_day])
+	def create_queued_trade(self, row_num, ticker, type, entry, exit, stop_loss, notes, expiration, metadata,sell_end_of_day,amount=''):
+		self.rows.append([ticker, type, entry, exit, stop_loss, notes, expiration, metadata,sell_end_of_day,amount])
 
 
 	def create_trade_record(self, trade, notes, metadata):
