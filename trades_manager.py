@@ -17,7 +17,11 @@ def pull_queued_trades(journal, trades_db):
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
-		trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6], row[8])
+		if row[1] == 'long':
+			trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6], row[8])
+		else:
+			trade = trades_db.create_new_short_trade(row[0], row[2], row[3], row[4], row[6], row[8])
+			
 		journal.create_trade_record(trade, row[5], row[7])
 		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
 
@@ -100,102 +104,224 @@ def handle_open_trades(brokerage, stock_math, journal, trades_db):
 	trades = trades_db.get_open_long_trades()
 
 	for trade in trades:
-
-		now = datetime.utcnow()
-
-		# Sell within last 30 minutes if marked for sale at end of the day
-		if now.hour >= 19 and now.minute >= 30:
-			if trade.sell_end_of_day == 1:
-				logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour}:{now.minute}...')
-				sell(brokerage, trades_db, trade, journal)
-				continue
-
 		bars = brokerage.get_last_bars(trade.ticker, 10, 'minute')
 
 		if (bars == None):
 			logging.error('Brokerage API failed to return last three chart bars.')
 			continue
 
-		sma3 = stock_math.sma_3_close(bars)
-		rsi10 = stock_math.rsi_10_close(bars)
-		bar = bars[0]
-
-		logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
-
-		# If the sma3 is less than or equal to the stop loss, we sell.
-		if sma3 <= trade.stop_loss:
-			logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by SMA3 {sma3}. Selling {trade.shares} shares...')
-			sell(brokerage, trades_db, trade, journal)
-			continue
-
-		#Once the price passes above within 1% of the exit price, we set a marker to sell, in case the price immediately drops below into a downward trend
-		if bar.close >= trade.planned_exit_price - (trade.planned_exit_price * 0.01):
-			trades_db.set_sale_price_marker(trade.ticker, trade.id)
-
-		sale_triggered = trades_db.get_sale_price_marker(trade.ticker, trade.id)
-
-		# We only sell if the price is less than the sma3 and therefore, in a downward trend OR has an RSI over 70, showing it's overbought. 
-		if sale_triggered:
-
-			if sma3 < bar.close or rsi10 > 70.0:
-
-				if rsi10 > 70.0:
-					logging.critical(f'{trade.ticker}: RSI {rsi10} is over 70. Stock is overbought. Selling {trade.shares} shares at {bar.close}...')
-				else:
-					logging.critical(f'{trade.ticker}: PRICE {bar.close} less than SMA3 {sma3} with RSI {rsi10}. Trend has shifted. Selling {trade.shares} shares...')
-
+		if trade.type == 'long':
+			if is_sellable(trade, bars, stock_math, trades_db):
 				sell(brokerage, trades_db, trade, journal)
-			else:
-				logging.critical(f'{trade.ticker} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend... (PRICE {bar.close}) (RSI {rsi10})')
+		else:
+			if is_short_buyable(trade, bars, stock_math, trades_db):
+				buy(brokerage, trades_db, bot_configuration, trade, journal)
+
 
 # Step five: If we are able to open new trades for the day, check the status on tickers for trades in the queue and purchase shares if the correct conditions have been met.
 def open_new_trades(brokerage, stock_math, journal, trades_db):
 	queued_trades = trades_db.get_queued_long_trades()
 
 	for trade in queued_trades:
-		now = datetime.utcnow()
-
-		# Prohibit the purchase of shares in the last hour if a trade is marked for sale at the end of the day
-		if now.hour >= 19:
-			if trade.sell_end_of_day == 1:
-				logging.critical(f'{trade.ticker} cannot be purchased. Trade is flagged for sale at end of day and it is now past 3:00pm.')
-				continue
-
 		bars = brokerage.get_last_bars(trade.ticker, 10, 'minute')
 
 		if (bars == None):
 			logging.error('Brokerage API failed to return last three chart bars.')
 			continue
 
-		sma5 = stock_math.sma_5_close(bars)
-		rsi10 = stock_math.rsi_10_close(bars)
-		bar = bars[0]
-
-		logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
-
-		# Setting a marker that the price has moved into the entry range in case it immediately reverses trend.
-		if bar.close > trade.stop_loss and bar.close <= trade.planned_entry_price:
-			trades_db.set_buy_price_marker(trade.ticker, trade.id)
-
-		buy_triggered = trades_db.get_buy_price_marker(trade.ticker, trade.id)
-
-		# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma5 and planned_entry_price with an RSI of less than 45
-		if buy_triggered and bar.close > trade.stop_loss and bar.close < sma5:
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
-		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close <= trade.planned_entry_price:
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend, but PRICE {bar.close} below ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
-		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 >= 45.0:
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in upward trend, but RSI above 45... (PRICE {bar.close}) (RSI {rsi10})')
-		elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 < 45.0:
-			logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} under 45. Executing purchase at PRICE {bar.close}....')
-			buy(brokerage, trades_db, bot_configuration, trade, bar, journal)
+		if trade.type == 'long':
+			if is_buyable(trade, bars, stock_math, trades_db):
+				buy(brokerage, trades_db, bot_configuration, trade, journal, price=bars[0].close)
+		else:
+			if is_short_sellable(trade, bars, stock_math, trades_db):
+				sell(brokerage, trades_db, trade, journal, price=bars[0].close)
 
 
 # We refactor the buy and sell logic into smaller methods for code reuse and to make the larger functions easier to read.
 # We make a clear distinction between the logic in deciding on a sale or purchase and the logic in executing the sale and purchase
 
-def sell(brokerage, trades_db, trade, journal):
-	order_id = brokerage.sell(trade.ticker, trade.shares)
+def is_buyable(trade, bars, stock_math, trades_db):
+	sma5 = stock_math.sma_5_close(bars)
+	rsi10 = stock_math.rsi_10_close(bars)
+	bar = bars[0]
+
+	logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+
+	now = datetime.utcnow()
+
+	# Prohibit the purchase of shares in the last hour if a trade is marked for sale at the end of the day
+	if now.hour >= 19:
+		if trade.sell_end_of_day == 1:
+			logging.critical(f'{trade.ticker} cannot be purchased. Trade is flagged for sale at end of day and it is now past 3:00pm.')
+			return False
+
+	# Setting a marker that the price has moved into the entry range in case it immediately reverses trend.
+	if bar.close > trade.stop_loss and bar.close <= trade.planned_entry_price:
+		trades_db.set_buy_price_marker(trade.ticker, trade.id)
+
+	buy_triggered = trades_db.get_buy_price_marker(trade.ticker, trade.id)
+
+	# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma5 and planned_entry_price with an RSI of less than 45
+	if buy_triggered and bar.close > trade.stop_loss and bar.close < sma5:
+		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
+		return False
+	elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close <= trade.planned_entry_price:
+		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend, but PRICE {bar.close} below ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
+		return False
+	elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 >= 45.0:
+		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in upward trend, but RSI above 45... (PRICE {bar.close}) (RSI {rsi10})')
+		return False
+	elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 < 45.0:
+		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} under 45. Executing purchase at PRICE {bar.close}....')
+		return True
+
+	return False
+
+def is_short_sellable(trade, bars, stock_math, trades_db):
+	sma5 = stock_math.sma_5_close(bars)
+	rsi10 = stock_math.rsi_10_close(bars)
+	bar = bars[0]
+
+	logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+
+	now = datetime.utcnow()
+
+	# Prohibit the purchase of shares in the last hour if a trade is marked for sale at the end of the day
+	if now.hour >= 19:
+		if trade.sell_end_of_day == 1:
+			logging.critical(f'{trade.ticker} cannot be purchased. Trade is flagged for sale at end of day and it is now past 3:00pm.')
+			return False
+
+	# Setting a marker that the price has moved into the entry range in case it immediately reverses trend.
+	if bar.close < trade.stop_loss and bar.close >= trade.planned_entry_price:
+		trades_db.set_buy_price_marker(trade.ticker, trade.id)
+
+	buy_triggered = trades_db.get_buy_price_marker(trade.ticker, trade.id)
+
+	# Only buy if the price moves above the planned entry price on a previous tick, but has moved below the stop loss, sma5 and planned_entry_price with an RSI greater than 65
+	if buy_triggered and bar.close < trade.stop_loss and bar.close > sma5:
+		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price}, but still in an upward trend... (PRICE {bar.close}) (RSI {rsi10})')
+		return False
+	elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma5 and bar.close >= trade.planned_entry_price:
+		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an dowanrd trend, but PRICE {bar.close} above ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
+		return False
+	elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma5 and bar.close < trade.planned_entry_price and rsi10 <= 65.0:
+		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an downward trend, but RSI below 65... (PRICE {bar.close}) (RSI {rsi10})')
+		return False
+	elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma5 and bar.close < trade.planned_entry_price and rsi10 > 65.0:
+		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an downward trend with RSI {rsi10} above 65. Executing short sale at PRICE {bar.close}....')
+		return True
+
+	return False
+
+
+def is_sellable(trade, bars, stock_math, trades_db):
+	sma3 = stock_math.sma_3_close(bars)
+	rsi10 = stock_math.rsi_10_close(bars)
+	bar = bars[0]
+
+	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+
+	now = datetime.utcnow()
+
+	# Sell within last 30 minutes if marked for sale at end of the day
+	if now.hour >= 19 and now.minute >= 30:
+		if trade.sell_end_of_day == 1:
+			logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Selling {trade.shares} shares at {now.hour}:{now.minute}...')
+			return True
+
+	# If the sma3 is less than or equal to the stop loss, we sell.
+	if sma3 <= trade.stop_loss:
+		logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by SMA3 {sma3}. Selling {trade.shares} shares...')
+		return True
+
+	#Once the price passes above within 1% of the exit price, we set a marker to sell, in case the price immediately drops below into a downward trend
+	if bar.close >= trade.planned_exit_price - (trade.planned_exit_price * 0.01):
+		trades_db.set_sale_price_marker(trade.ticker, trade.id)
+
+	sale_triggered = trades_db.get_sale_price_marker(trade.ticker, trade.id)
+
+	# We only sell if the price is less than the sma3 and therefore, in a downward trend OR has an RSI over 70, showing it's overbought. 
+	if sale_triggered:
+		if sma3 < bar.close or rsi10 > 70.0:
+			if rsi10 > 70.0:
+				logging.critical(f'{trade.ticker}: RSI {rsi10} is over 70. Stock is overbought. Selling {trade.shares} shares at {bar.close}...')
+			else:
+				logging.critical(f'{trade.ticker}: PRICE {bar.close} less than SMA3 {sma3} with RSI {rsi10}. Trend has shifted. Selling {trade.shares} shares...')
+			return True
+		else:
+			logging.critical(f'{trade.ticker} exceeded the EXIT {trade.planned_exit_price}, but still in upward trend... (PRICE {bar.close}) (RSI {rsi10})')
+			return False
+	return False
+
+def is_short_buyable(trade, bars, stock_math, trades_db):
+	sma3 = stock_math.sma_3_close(bars)
+	rsi10 = stock_math.rsi_10_close(bars)
+	bar = bars[0]
+
+	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+
+	now = datetime.utcnow()
+
+	# Sell within last 30 minutes if marked for sale at end of the day
+	if now.hour >= 19 and now.minute >= 30:
+		if trade.sell_end_of_day == 1:
+			logging.critical(f'{trade.ticker}: Trade is flagged for a sale at end of the day. Buying back {trade.shares} shares at {now.hour}:{now.minute}...')
+			return True
+
+	# If the sma3 is less than or equal to the stop loss, we sell.
+	if sma3 >= trade.stop_loss:
+		logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by SMA3 {sma3}. Buying back {trade.shares} shares...')
+		return True
+
+	#Once the price passes below within 1% of the exit price, we set a marker to buy, in case the price immediately moves into an upward trend
+	if bar.close <= trade.planned_exit_price - (trade.planned_exit_price * 0.01):
+		trades_db.set_sale_price_marker(trade.ticker, trade.id)
+
+	sale_triggered = trades_db.get_sale_price_marker(trade.ticker, trade.id)
+
+	# We only buy if the price is grater than the sma3 and therefore, in a upward trend OR has an RSI under 30, showing it's oversold. 
+	if sale_triggered:
+		if sma3 > bar.close or rsi10 < 30.0:
+			if rsi10 < 30.0:
+				logging.critical(f'{trade.ticker}: RSI {rsi10} is under 30. Stock is oversold. Buying back {trade.shares} shares at {bar.close}...')
+			else:
+				logging.critical(f'{trade.ticker}: PRICE {bar.close} greater than SMA3 {sma3} with RSI {rsi10}. Trend has shifted. Buying back {trade.shares} shares...')
+			return True
+		else:
+			logging.critical(f'{trade.ticker} exceeded the EXIT {trade.planned_exit_price}, but still in downward trend... (PRICE {bar.close}) (RSI {rsi10})')
+			return False
+	return False
+
+def sell(brokerage, trades_db, trade, journal, price=None):
+	if price == None:
+		shares = trade.shares
+	else:
+		buying_power = brokerage.get_buying_power()
+
+		if (buying_power == None):
+			logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
+			return False
+
+		if (buying_power == False):
+			logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
+			return False
+
+		if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
+			logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+			trade = trades_db.out_of_money(trade)
+			journal.update_trade_record(trade)
+			return False
+
+		trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
+
+		if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
+			trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+
+		# Shares are dynamically calculated from a percentage of the total brokerage account
+		shares = math.trunc(trade_amount / price)
+
+	order_id = brokerage.sell(trade.ticker, shares)
 	if order_id is not None:
 		trade = trades_db.sell(trade, order_id)
 		journal.update_trade_record(trade)
@@ -205,30 +331,34 @@ def sell(brokerage, trades_db, trade, journal):
 		logging.error('Brokerage API failed to complete sell order.')
 		return False
 
-def buy(brokerage, trades_db, bot_configuration, trade, bar, journal):
-	buying_power = brokerage.get_buying_power()
+def buy(brokerage, trades_db, bot_configuration, trade, journal, price=None):
 
-	if (buying_power == None):
-		logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
-		return False
+	if price == None:
+		shares = trade.shares
+	else:
+		buying_power = brokerage.get_buying_power()
 
-	if (buying_power == False):
-		logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
-		return False
+		if (buying_power == None):
+			logging.error('Brokerage API failed to return the account balance. Cannot complete trade.')
+			return False
 
-	if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
-		logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
-		trade = trades_db.out_of_money(trade)
-		journal.update_trade_record(trade)
-		return False
+		if (buying_power == False):
+			logging.error('Maximum number of purchases has been executed for the day. Cannot complete trade')
+			return False
 
-	trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
+		if buying_power < bot_configuration.MIN_AMOUNT_PER_TRADE:
+			logging.critical(f'Not enough buying power to complete trade. (Buying Power: {buying_power})')
+			trade = trades_db.out_of_money(trade)
+			journal.update_trade_record(trade)
+			return False
 
-	if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
-		trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+		trade_amount = buying_power * bot_configuration.PERCENTAGE_OF_ACCOUNT_TO_LEVERAGE
 
-	# Shares are dynamically calculated from a percentage of the total brokerage account
-	shares = math.trunc(trade_amount / bar.close)
+		if trade_amount < bot_configuration.MIN_AMOUNT_PER_TRADE:
+			trade_amount = bot_configuration.MIN_AMOUNT_PER_TRADE
+
+		# Shares are dynamically calculated from a percentage of the total brokerage account
+		shares = math.trunc(trade_amount / price)
 
 	order_id = brokerage.buy(trade.ticker, shares)
 

@@ -75,6 +75,9 @@ def add(trade):
 def create_new_long_trade(ticker, entry, exit, stop_loss, expiration_date, sell_at_end_day):
 	return add(generate_default_trade(ticker, 'long', entry, exit, stop_loss, expiration_date, sell_at_end_day))
 
+def create_new_short_trade(ticker, entry, exit, stop_loss, expiration_date, sell_at_end_day):
+	return add(generate_default_trade(ticker, 'short', entry, exit, stop_loss, expiration_date, sell_at_end_day))
+
 def open(trade, shares, price):
 	trade.shares = shares
 	trade.status = 'OPEN'
