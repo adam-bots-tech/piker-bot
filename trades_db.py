@@ -87,6 +87,7 @@ def open(trade, shares, price):
 	trade.entry_date = datetime.timestamp(datetime.now())
 	Session.commit()
 	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def close(trade, price):
@@ -95,19 +96,22 @@ def close(trade, price):
 	trade.exit_date = datetime.timestamp(datetime.now())
 	Session.commit()
 	remove_sale_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def cancel(trade):
 	trade.status = 'CANCELED'
 	Session.commit()
 	remove_buy_price_marker(trade.ticker, trade.id)
-	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_sale_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def cancel_sale(trade):
 	trade.status = 'SALE_CANCELED'
 	Session.commit()
 	remove_sale_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def invalidate(trade):
@@ -125,6 +129,7 @@ def sell(trade, order_id):
 	trade.sell_order_id = order_id
 	Session.commit()
 	remove_sale_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def buy(trade, shares, order_id):
@@ -133,6 +138,7 @@ def buy(trade, shares, order_id):
 	trade.buy_order_id = order_id
 	Session.commit()
 	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def replace_sale(trade, order_id):
@@ -140,6 +146,7 @@ def replace_sale(trade, order_id):
 	trade.sell_order_id = order_id
 	Session.commit()
 	remove_sale_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def replace_buy(trade, order_id):
@@ -147,18 +154,21 @@ def replace_buy(trade, order_id):
 	trade.buy_order_id = order_id
 	Session.commit()
 	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def expire(trade):
 	trade.status = 'EXPIRED'
 	Session.commit()
 	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def expire_sale(trade):
 	trade.status = 'SALE_EXPIRED'
 	Session.commit()
 	remove_sale_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
 	return trade
 
 def update_stop_loss(trade, stop_loss):
@@ -191,18 +201,14 @@ def get_queued_long_trades():
 
 cache = {
 	'market_open': None,
-	'prices': None
+	'prices': None,
+	'aths': None
 }
 
 def get_market_open():
 	if cache['market_open'] is None:
 		cache['market_open'] = Session.query(Property).filter(Property.key == 'market_open').first()
 	return cache['market_open'] is not None and cache['market_open'].value == '1'
-
-def get_last_prices():
-	if cache['prices'] is None:
-		cache['prices'] = Session.query(Property).filter(Property.key == 'last_prices').first()
-	return {} if cache['prices'] is None or cache['prices'].value is None else json.loads(cache['prices'].value)
 
 def set_market_open(is_open):
 	if cache['market_open'] is None:
@@ -213,7 +219,12 @@ def set_market_open(is_open):
 		cache['market_open'].value = is_open
 		Session.commit()
 
-def set_last_prices(last_prices):
+def get_markers():
+	if cache['prices'] is None:
+		cache['prices'] = Session.query(Property).filter(Property.key == 'last_prices').first()
+	return {} if cache['prices'] is None or cache['prices'].value is None else json.loads(cache['prices'].value)
+
+def set_markers(last_prices):
 	if cache['prices'] is None:
 		cache['prices'] = Property(key='last_prices', value=json.dumps(last_prices))
 		Session.add(cache['prices'])
@@ -223,37 +234,69 @@ def set_last_prices(last_prices):
 		Session.commit()
 
 def remove_buy_price_marker(ticker, id):
-	prices = get_last_prices()
+	prices = get_markers()
 	if 'buy'+ticker+str(id) in prices.keys():
 		del prices['buy'+ticker+str(id)]
-	set_last_prices(prices)
+	set_markers(prices)
 
 def remove_sale_price_marker(ticker, id):
-	prices = get_last_prices()
+	prices = get_markers()
 	if 'buy'+ticker+str(id) in prices.keys():
 		del prices['buy'+ticker+str(id)]
-	set_last_prices(prices)
+	set_markers(prices)
 
 def set_sale_price_marker(ticker, id):
-	prices = get_last_prices()
+	prices = get_markers()
 	prices['sell'+ticker+str(id)] = True
-	set_last_prices(prices)
+	set_markers(prices)
 
 def get_sale_price_marker(ticker, id):
-	prices = get_last_prices()
+	prices = get_markers()
 	if 'sell'+ticker+str(id) not in prices.keys() or prices['sell'+ticker+str(id)] == False: 
 		return False
 	else:
 		return True
 
 def set_buy_price_marker(ticker, id):
-	prices = get_last_prices()
+	prices = get_markers()
 	prices['buy'+ticker+str(id)] = True
-	set_last_prices(prices)
+	set_markers(prices)
 
 def get_buy_price_marker(ticker, id):
-	prices = get_last_prices()
+	prices = get_markers()
 	if 'buy'+ticker+str(id) not in prices.keys() or prices['buy'+ticker+str(id)] == False: 
 		return False
 	else:
 		return True
+
+def get_aths():
+	if cache['aths'] is None:
+		cache['aths'] = Session.query(Property).filter(Property.key == 'last_aths').first()
+	return {} if cache['aths'] is None or cache['aths'].value is None else json.loads(cache['aths'].value)
+
+def set_aths(last_prices):
+	if cache['aths'] is None:
+		cache['aths'] = Property(key='last_aths', value=json.dumps(last_prices))
+		Session.add(cache['aths'])
+		Session.commit()
+	else:
+		cache['aths'].value=json.dumps(last_prices)
+		Session.commit()
+
+def remove_ath(ticker, id):
+	prices = get_aths()
+	if ticker+str(id) in prices.keys():
+		del prices[ticker+str(id)]
+	set_aths(prices)
+
+def set_ath(ticker, id, price):
+	prices = get_aths()
+	prices[ticker+str(id)] = price
+	set_aths(prices)
+
+def get_ath(ticker, id):
+	prices = get_aths()
+	if ticker+str(id) not in prices.keys(): 
+		return None
+	else:
+		return prices[ticker+str(id)]

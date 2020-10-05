@@ -147,7 +147,9 @@ def is_buyable(trade, bars, stock_math, trades_db):
 	rsi10 = stock_math.rsi_10_close(bars)
 	bar = bars[0]
 
-	logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+	stop_loss = calculate_stop_loss(trade, trades_db, bar.close)
+
+	logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {stop_loss}')
 
 	now = datetime.utcnow()
 
@@ -158,22 +160,22 @@ def is_buyable(trade, bars, stock_math, trades_db):
 			return False
 
 	# Setting a marker that the price has moved into the entry range in case it immediately reverses trend.
-	if bar.close > trade.stop_loss and bar.close <= trade.planned_entry_price:
+	if bar.close > stop_loss and bar.close <= trade.planned_entry_price:
 		trades_db.set_buy_price_marker(trade.ticker, trade.id)
 
 	buy_triggered = trades_db.get_buy_price_marker(trade.ticker, trade.id)
 
 	# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma5 and planned_entry_price with an RSI of less than 45
-	if buy_triggered and bar.close > trade.stop_loss and bar.close < sma5:
+	if buy_triggered and bar.close > stop_loss and bar.close < sma5:
 		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
 		return False
-	elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close <= trade.planned_entry_price:
+	elif buy_triggered and bar.close > stop_loss and bar.close > sma5 and bar.close <= trade.planned_entry_price:
 		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend, but PRICE {bar.close} below ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
 		return False
-	elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 >= 45.0:
+	elif buy_triggered and bar.close > stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 >= 45.0:
 		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in upward trend, but RSI above 45... (PRICE {bar.close}) (RSI {rsi10})')
 		return False
-	elif buy_triggered and bar.close > trade.stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 < 45.0:
+	elif buy_triggered and bar.close > stop_loss and bar.close > sma5 and bar.close > trade.planned_entry_price and rsi10 < 45.0:
 		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend with RSI {rsi10} under 45. Executing purchase at PRICE {bar.close}....')
 		return True
 
@@ -184,7 +186,9 @@ def is_short_sellable(trade, bars, stock_math, trades_db):
 	rsi10 = stock_math.rsi_10_close(bars)
 	bar = bars[0]
 
-	logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+	stop_loss = calculate_short_sale_stop_loss(trade, trades_db, bar.close)
+
+	logging.info(f'{trade.ticker}: QUEUED PRICE {bar.close} SMA5 {sma5} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {stop_loss}')
 
 	now = datetime.utcnow()
 
@@ -195,16 +199,16 @@ def is_short_sellable(trade, bars, stock_math, trades_db):
 			return False
 
 	# Setting a marker that the price has moved into the entry range in case it immediately reverses trend.
-	if bar.close < trade.stop_loss and bar.close >= trade.planned_entry_price:
+	if bar.close < stop_loss and bar.close >= trade.planned_entry_price:
 		trades_db.set_buy_price_marker(trade.ticker, trade.id)
 
 	buy_triggered = trades_db.get_buy_price_marker(trade.ticker, trade.id)
 
 	# Only buy if the price moves above the planned entry price on a previous tick, but has moved below the stop loss, sma5 and planned_entry_price with an RSI greater than 65
-	if buy_triggered and bar.close < trade.stop_loss and bar.close > sma5:
+	if buy_triggered and bar.close < stop_loss and bar.close > sma5:
 		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price}, but still in an upward trend... (PRICE {bar.close}) (RSI {rsi10})')
 		return False
-	elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma5 and bar.close >= trade.planned_entry_price:
+	elif buy_triggered and bar.close < stop_loss and bar.close < sma5 and bar.close >= trade.planned_entry_price:
 		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an dowanrd trend, but PRICE {bar.close} above ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
 		return False
 	elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma5 and bar.close < trade.planned_entry_price and rsi10 <= 65.0:
@@ -222,6 +226,8 @@ def is_sellable(trade, bars, stock_math, trades_db):
 	rsi10 = stock_math.rsi_10_close(bars)
 	bar = bars[0]
 
+	stop_loss = calculate_stop_loss(trade, trades_db, bar.close)
+
 	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
 	now = datetime.utcnow()
@@ -233,8 +239,8 @@ def is_sellable(trade, bars, stock_math, trades_db):
 			return True
 
 	# If the sma3 is less than or equal to the stop loss, we sell.
-	if sma3 <= trade.stop_loss:
-		logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by SMA3 {sma3}. Selling {trade.shares} shares...')
+	if sma3 <= stop_loss:
+		logging.critical(f'{trade.ticker}: STOP {stop_loss} exceeded by SMA3 {sma3}. Selling {trade.shares} shares...')
 		return True
 
 	#Once the price passes above within 1% of the exit price, we set a marker to sell, in case the price immediately drops below into a downward trend
@@ -261,6 +267,8 @@ def is_short_buyable(trade, bars, stock_math, trades_db):
 	rsi10 = stock_math.rsi_10_close(bars)
 	bar = bars[0]
 
+	stop_loss = calculate_short_sale_stop_loss(trade, trades_db, bar.close)
+
 	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
 
 	now = datetime.utcnow()
@@ -272,8 +280,8 @@ def is_short_buyable(trade, bars, stock_math, trades_db):
 			return True
 
 	# If the sma3 is less than or equal to the stop loss, we sell.
-	if sma3 >= trade.stop_loss:
-		logging.critical(f'{trade.ticker}: STOP {trade.stop_loss} exceeded by SMA3 {sma3}. Buying back {trade.shares} shares...')
+	if sma3 >= stop_loss:
+		logging.critical(f'{trade.ticker}: STOP {stop_loss} exceeded by SMA3 {sma3}. Buying back {trade.shares} shares...')
 		return True
 
 	#Once the price passes below within 1% of the exit price, we set a marker to buy, in case the price immediately moves into an upward trend
@@ -379,3 +387,29 @@ def buy(brokerage, trades_db, bot_configuration, trade, journal, price=None, amo
 		logging.error('Brokerage API failed to complete buy order.')
 
 	return False
+
+def calculate_stop_loss(trade, trades_db, price):
+	ath = trades_db.get_ath(trade.ticker, trade.id)
+	if ath == None or price > ath:
+		 trades_db.set_ath(trade.ticker, trade.id, price)
+		 ath = trades_db.get_ath(trade.ticker, trade.id)
+
+	if trade.stop_loss < 1.0:
+		stop_loss = ath - (ath * trade.stop_loss)
+	else:
+		stop_loss = trade.stop_loss
+
+	return stop_loss
+
+def calculate_short_sale_stop_loss(trade, trades_db, price):
+	ath = trades_db.get_ath(trade.ticker, trade.id)
+	if ath == None or price > ath:
+		 trades_db.set_ath(trade.ticker, trade.id, price)
+		 ath = trades_db.get_ath(trade.ticker, trade.id)
+
+	if trade.stop_loss < 1.0:
+		stop_loss = ath + (ath * trade.stop_loss)
+	else:
+		stop_loss = trade.stop_loss
+
+	return stop_loss
