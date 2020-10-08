@@ -11,18 +11,28 @@ This is the development repo of the bot and the stability of the code base can b
 - Reads queued trades from a Google spreadsheet in a Google Drive and adds them to a local sqlite3 database.
 - Bot's heartbeat pulses every minute and checks the price on tickers from trades in the journal.
 - Bot purchases the stock when certain combinations of conditions are met:
-	- If the bot comes online while the price is above the entry price, it will wait for it to fall below the entry price before flagging the ticker as primed for a trade. This is to ensure we are taking the trade from a position where the swing is about to begin and prohibiting the bot from buying only to immediately sell when the price rises a few cents later.
-	- Once the price is below the entry price, but above the stop loss, the bot will wait for it to rise above the entry price before proceeding to ensure there is some momentum. 
-	- Once the price rises above the entry price, the price must be above the SM5 to show the stable start of an uptrend and the RSI must be under 45 to show it's still relatively oversold.
-- Buy orders are market price and good for the day only. Trades are marked as expired when the orders are expired. The bot does not attempt to enter them again.
-- Bot will sell the stock when combinations of conditions are met:
-	- First, the price must move within 1% of the exit price.
-	- Once the price is within 1% of the exit price, if the RSI goes above 70 at any point, the bot sells immediately. 
-	- Otherwise, if the RSI remains below 70, the bot waits for the price to fall below the SMA3 to show the start of a downtrend before selling.
-- If the trade is flagged with the 'sell at close' boolean, the bot will force a sale within the last 30 minutes of the market being open.
-	- It will also prohibit the purchase of shares within the last hour of the market being open. This is to prohibit the bot from immediately opening and closing trades.
-- Sale orders are market price and good until canceled to try to ensure all trades get closed out at some point
-- Number of shares to purchase is calculated at the time of the purchase, based on how many can be purchased using a percentage of the total brokerage account. 
+	- LONG
+		- If the bot comes online while the price is above the entry price, it will wait for it to fall below the entry price before flagging the ticker as primed for a trade. This is to ensure we are taking the trade from a position where the swing is about to begin and prohibiting the bot from buying only to immediately sell when the price rises a few cents later.
+		- Once the price is below the entry price, but above the stop loss, the bot will wait for it to rise above the entry price before proceeding to ensure there is some momentum. 
+		- Once the price rises above the entry price, the price must be above the SM5 to show the stable start of an uptrend and the RSI must be under 45 to show it's still relatively oversold.
+	- SHORT
+		- If the bot comes online while the price is below the entry price, it will wait for it to rise above the entry price before flagging the ticker as primed for a trade.
+		- Once the price is above the entry price, but below the stop loss, the bot will wait for it to drop below the entry price before proceeding to ensure there is some momentum. 
+		- Once the price drops below the entry price, the price must be below the SM5 to show the stable start of a downtrend and the RSI must be over 65 to show it's still relatively overbought.
+- Buy and short sell orders are market price and good for the day only. Trades are marked as expired when the orders are expired. The bot does not attempt to enter them again.
+- Bot will sell/buy back the stock when combinations of conditions are met:
+	- LONG
+		- First, the price must move within 1% of the exit price.
+		- Once the price is within 1% of the exit price, if the RSI goes above 70 at any point, the bot sells immediately. 
+		- Otherwise, if the RSI remains below 70, the bot waits for the price to fall below the SMA3 to show the start of a downtrend before selling.
+	- SHORT
+		- First, the price must move within 1% of the exit price.
+		- Once the price is within 1% of the exit price, if the RSI goes below 35 at any point, the bot buys back immediately. 
+		- Otherwise, if the RSI remains above 35, the bot waits for the price to rise above the SMA3 to show the start of an uptrend before buying back.
+- If the trade is flagged with the 'sell at close' boolean, the bot will force a sale/buy back within the last 30 minutes of the market being open.
+	- It will also prohibit the purchase/short sale of shares within the last hour of the market being open. This is to prohibit the bot from immediately opening and closing trades.
+- Sale/buy back orders are market price and good until canceled to try to ensure all trades get closed out at some point
+- Number of shares to purchase/short sell is calculated at the time of the purchase, based on how many can be purchased/short sold using a percentage of the total brokerage account. 
 	- This is based on cash only; buying power does not include your margin. It will not take you into debt to make trades.
 - As the trade progreses, the bot automatically updates the sqlite3 database and the trade journal in Google Drive.
 	- When it opens or closes a trade, the bot will update the trade journal with a snapshot of technical indicators at the time of purchase or sale. 
@@ -89,10 +99,10 @@ before activating. Once trades are read, they cannot be altered without changing
 
 Columns:
 - Ticker
-- Type: long or short. short is not supported right now
+- Type: long or short.
 - Entry Price: float
 - Exit Price: float
-- Stop Loss: float
+- Stop Loss: float. If less than 1.0, bot treats number as a percentage for a trailing stop loss (.05 == 5%)
 - Notes: Text. No quotes or double quotes or escape characters.
 - Expiration: Number of days to keep the trade queued trade before expiring it. Once a trade is opened, it remains open until the sale conditions are met or the 'Sell at End of Day' flag is activated. Must be 1 or greater.
 - Metadata: This is a json data set with technical indicators. It's submitted by the trades module in Stock Scripts. It's a work in progres. It doesn't do anything yet unless you want to read technical indicators out of json data. 

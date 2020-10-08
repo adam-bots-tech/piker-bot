@@ -17,15 +17,15 @@ def pull_queued_trades(journal, trades_db):
 		if row[0] == '' or row[0].lower() == 'ticker':
 			continue
 
-		amount = 0.0 if row[9] == '' else row[9]
+		amount = 0.0 if row[7] == '' else row[7]
 
 		if row[1] == 'long':
 			trade = trades_db.create_new_long_trade(row[0], row[2], row[3], row[4], row[6], row[8], amount)
 		else:
 			trade = trades_db.create_new_short_trade(row[0], row[2], row[3], row[4], row[6], row[8], amount)
 
-		journal.create_trade_record(trade, row[5], row[7])
-		logging.critical(f'Trade added to Queue: [{row[0]}, long, {row[2]}, {row[3]}, {row[4]}]')
+		journal.create_trade_record(trade, row[5])
+		logging.critical(f'Trade added to Queue: [{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}]')
 
 	journal.reset_queued_trades(header_row)
 
@@ -65,7 +65,10 @@ def handle_open_buy_orders(brokerage, journal, trades_db):
 			journal.update_trade_record(trade)
 		elif order.status == 'filled':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} filled at {order.sale_price}. (Order ID: {order.order_id})')
-			trade = trades_db.open(trade, order.shares, order.sale_price)
+			if trade.type == 'short':
+				trade = trades_db.close(trade, order.sale_price)
+			else:
+				trade = trades_db.open(trade, order.shares, order.sale_price)
 			journal.update_trade_record(trade, buy_metadata=json.dumps(ta.analyze(trade.ticker, brokerage)))
 		elif order.status == 'replaced':
 			logging.critical(f'{trade.ticker}: Trade buy order {trade.create_date} replaced. (Order ID: {order.order_id})')
@@ -94,7 +97,10 @@ def handle_open_sell_orders(brokerage, journal, trades_db):
 			journal.update_trade_record(trade)
 		elif order.status == 'filled':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} filled at {order.sale_price}. (Order ID: {order.order_id})')
-			trade = trades_db.close(trade, order.sale_price)
+			if trade.type == 'short':
+				trade = trades_db.open(trade, order.shares, order.sale_price)
+			else:
+				trade = trades_db.close(trade, order.sale_price)
 			journal.update_trade_record(trade, sale_metadata=json.dumps(ta.analyze(trade.ticker, brokerage)))
 		elif order.status == 'replaced':
 			logging.critical(f'{trade.ticker}: Trade sell order {trade.create_date} replaced. (Order ID: {order.order_id})')
@@ -103,7 +109,7 @@ def handle_open_sell_orders(brokerage, journal, trades_db):
 
 # Step four: Check the status on positions we already have and sell if the correct conditions have been met.
 def handle_open_trades(brokerage, stock_math, journal, trades_db):
-	trades = trades_db.get_open_long_trades()
+	trades = trades_db.get_open_trades()
 
 	for trade in trades:
 		bars = brokerage.get_last_bars(trade.ticker, 10, 'minute')
@@ -122,7 +128,7 @@ def handle_open_trades(brokerage, stock_math, journal, trades_db):
 
 # Step five: If we are able to open new trades for the day, check the status on tickers for trades in the queue and purchase shares if the correct conditions have been met.
 def open_new_trades(brokerage, stock_math, journal, trades_db):
-	queued_trades = trades_db.get_queued_long_trades()
+	queued_trades = trades_db.get_queued_trades()
 
 	for trade in queued_trades:
 		bars = brokerage.get_last_bars(trade.ticker, 10, 'minute')
@@ -167,7 +173,7 @@ def is_buyable(trade, bars, stock_math, trades_db):
 
 	# Only buy if the price has fallen below the planned entry price on a previous tick, but has moved above the stop loss, sma5 and planned_entry_price with an RSI of less than 45
 	if buy_triggered and bar.close > stop_loss and bar.close < sma5:
-		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price}, but still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
+		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and still in a downward trend... (PRICE {bar.close}) (RSI {rsi10})')
 		return False
 	elif buy_triggered and bar.close > stop_loss and bar.close > sma5 and bar.close <= trade.planned_entry_price:
 		logging.critical(f'{trade.ticker} moved under ENTRY {trade.planned_entry_price} and in an upward trend, but PRICE {bar.close} below ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
@@ -206,10 +212,10 @@ def is_short_sellable(trade, bars, stock_math, trades_db):
 
 	# Only buy if the price moves above the planned entry price on a previous tick, but has moved below the stop loss, sma5 and planned_entry_price with an RSI greater than 65
 	if buy_triggered and bar.close < stop_loss and bar.close > sma5:
-		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price}, but still in an upward trend... (PRICE {bar.close}) (RSI {rsi10})')
+		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and still in an upward trend... (PRICE {bar.close}) (RSI {rsi10})')
 		return False
 	elif buy_triggered and bar.close < stop_loss and bar.close < sma5 and bar.close >= trade.planned_entry_price:
-		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an dowanrd trend, but PRICE {bar.close} above ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
+		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an downward trend, but PRICE {bar.close} above ENTRY {trade.planned_entry_price}... (RSI {rsi10})')
 		return False
 	elif buy_triggered and bar.close < trade.stop_loss and bar.close < sma5 and bar.close < trade.planned_entry_price and rsi10 <= 65.0:
 		logging.critical(f'{trade.ticker} moved above ENTRY {trade.planned_entry_price} and in an downward trend, but RSI below 65... (PRICE {bar.close}) (RSI {rsi10})')
@@ -228,7 +234,7 @@ def is_sellable(trade, bars, stock_math, trades_db):
 
 	stop_loss = calculate_stop_loss(trade, trades_db, bar.close)
 
-	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {stop_loss}')
 
 	now = datetime.utcnow()
 
@@ -269,7 +275,7 @@ def is_short_buyable(trade, bars, stock_math, trades_db):
 
 	stop_loss = calculate_short_sale_stop_loss(trade, trades_db, bar.close)
 
-	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {trade.stop_loss}')
+	logging.info(f'{trade.ticker}: OPEN PRICE {bar.close} SMA3 {sma3} RSI10 {rsi10} ENTRY {trade.planned_entry_price} EXIT {trade.planned_exit_price} STOP {stop_loss}')
 
 	now = datetime.utcnow()
 
@@ -296,10 +302,10 @@ def is_short_buyable(trade, bars, stock_math, trades_db):
 			if rsi10 < 30.0:
 				logging.critical(f'{trade.ticker}: RSI {rsi10} is under 30. Stock is oversold. Buying back {trade.shares} shares at {bar.close}...')
 			else:
-				logging.critical(f'{trade.ticker}: PRICE {bar.close} greater than SMA3 {sma3} with RSI {rsi10}. Trend has shifted. Buying back {trade.shares} shares...')
+				logging.critical(f'{trade.ticker}: PRICE {bar.close} less than SMA3 {sma3} with RSI {rsi10}. Trend has shifted. Buying back {trade.shares} shares...')
 			return True
 		else:
-			logging.critical(f'{trade.ticker} exceeded the EXIT {trade.planned_exit_price}, but still in downward trend... (PRICE {bar.close}) (RSI {rsi10})')
+			logging.critical(f'{trade.ticker} dropped below the EXIT {trade.planned_exit_price}, but still in upward trend... (PRICE {bar.close}) (RSI {rsi10})')
 			return False
 	return False
 
@@ -336,9 +342,12 @@ def sell(brokerage, trades_db, trade, journal, price=None, amount=None):
 
 	order_id = brokerage.sell(trade.ticker, shares)
 	if order_id is not None:
-		trade = trades_db.sell(trade, order_id)
+		if trade.type == 'short':
+			trade = trades_db.sell_short(trade, order_id, shares)
+		else:
+			trade = trades_db.sell(trade, order_id)
 		journal.update_trade_record(trade)
-		logging.critical(f'{trade.ticker}: {trade.shares} shares sold at market price. (Order ID: {order_id})')
+		logging.critical(f'{trade.ticker}: {trade.shares} shares sold or bought back at market price. (Order ID: {order_id})')
 		return True
 	else:
 		logging.error('Brokerage API failed to complete sell order.')
@@ -379,8 +388,11 @@ def buy(brokerage, trades_db, bot_configuration, trade, journal, price=None, amo
 	order_id = brokerage.buy(trade.ticker, shares)
 
 	if order_id is not None:
-		logging.critical(f'{trade.ticker}: {shares} shares bought at market price. (Order ID: {order_id})')
-		trade = trades_db.buy(trade, shares, order_id)
+		logging.critical(f'{trade.ticker}: {shares} shares bought or short sold at market price. (Order ID: {order_id})')
+		if trade.type == 'short':
+			trade = trades_db.buy_short(trade, order_id)
+		else:
+			trade = trades_db.buy(trade, shares, order_id)
 		journal.update_trade_record(trade)
 		return True
 	else:

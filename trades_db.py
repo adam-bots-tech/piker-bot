@@ -132,12 +132,29 @@ def sell(trade, order_id):
 	remove_ath(trade.ticker, trade.id)
 	return trade
 
+def sell_short(trade, order_id, shares):
+	trade.status = 'SHORT_SELLING'
+	trade.buy_order_id = order_id
+	trade.shares = shares
+	Session.commit()
+	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
+	return trade
+
 def buy(trade, shares, order_id):
 	trade.status = 'BUYING'
 	trade.shares = shares
 	trade.buy_order_id = order_id
 	Session.commit()
 	remove_buy_price_marker(trade.ticker, trade.id)
+	remove_ath(trade.ticker, trade.id)
+	return trade
+
+def buy_short(trade, order_id):
+	trade.status = 'SHORT_BUYING'
+	trade.sell_order_id = order_id
+	Session.commit()
+	remove_sale_price_marker(trade.ticker, trade.id)
 	remove_ath(trade.ticker, trade.id)
 	return trade
 
@@ -183,14 +200,17 @@ def get_all_trades():
 def get_open_long_trades():
 	return Session.query(Trade).filter(Trade.status == 'OPEN', Trade.type == 'long').order_by(Trade.create_date.asc()).all()
 
+def get_open_trades():
+	return Session.query(Trade).filter(Trade.status == 'OPEN').order_by(Trade.create_date.asc()).all()
+
 def get_trades_being_bought():
-	return Session.query(Trade).filter(Trade.status == 'BUYING').order_by(Trade.create_date.asc()).all()
+	return Session.query(Trade).filter(Trade.status.in_(['SHORT_BUYING', 'BUYING'])).order_by(Trade.create_date.asc()).all()
 
 def get_trades_being_sold():
-	return Session.query(Trade).filter(Trade.status == 'SELLING').order_by(Trade.create_date.asc()).all()
+	return Session.query(Trade).filter(Trade.status.in_(['SHORT_SELLING', 'SELLING'])).order_by(Trade.create_date.asc()).all()
 
 def get_active_trades():
-	return Session.query(Trade).filter(Trade.status.in_(['OPEN', 'BUYING', 'SELLING'])).order_by(Trade.create_date.asc()).all()
+	return Session.query(Trade).filter(Trade.status.in_(['OPEN', 'BUYING', 'SELLING', 'SHORT_SELLING', 'SHORT_BUYING'])).order_by(Trade.create_date.asc()).all()
 
 def get_queued_trades():
 	return Session.query(Trade).filter(Trade.status == 'QUEUED').order_by(Trade.create_date.asc()).all()
